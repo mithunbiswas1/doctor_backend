@@ -20,6 +20,7 @@ import categoryRouter from "./routes/category.routes.js";
 import itemRouter from "./routes/item.routes.js";
 import sectionRouter from "./routes/section.routes.js";
 import orderRouter from "./routes/order.routes.js";
+import prescriptionRouter from "./routes/prescription.routes.js";
 
 // __dirname setup for ES Module
 const __filename = fileURLToPath(import.meta.url);
@@ -69,5 +70,6 @@ app.use("/api/v1", categoryRouter);
 app.use("/api/v1", itemRouter);
 app.use("/api/v1", sectionRouter);
 app.use("/api/v1", orderRouter);
+app.use("/api/v1", prescriptionRouter);
 
 export { app };

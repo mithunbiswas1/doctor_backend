@@ -26,13 +26,11 @@ const generateAccessTokenAndRefreshToken = async (userId) => {
 
 // Function to generate unique username from fullName
 const generateUniqueUsername = async (fullName) => {
-  // Convert to lowercase, remove spaces, keep only alphanumeric
   let baseUsername = fullName
     .toLowerCase()
-    .replace(/\s+/g, "") // Remove spaces
-    .replace(/[^a-z0-9]/g, ""); // Remove special characters
+    .replace(/\s+/g, "")
+    .replace(/[^a-z0-9]/g, "");
 
-  // If empty, use default
   if (!baseUsername) {
     baseUsername = "user";
   }
@@ -40,10 +38,8 @@ const generateUniqueUsername = async (fullName) => {
   let username = baseUsername;
   let counter = 1;
 
-  // Check if username exists
   let existingUser = await User.findOne({ userName: username });
 
-  // If exists, append number until unique
   while (existingUser) {
     username = `${baseUsername}${counter}`;
     existingUser = await User.findOne({ userName: username });
@@ -55,17 +51,15 @@ const generateUniqueUsername = async (fullName) => {
 
 // User registration
 const registerUser = asyncHandler(async (req, res) => {
-  const { fullName, email, phone, password, role, bio } = req.body;
+  const { fullName, email, phone, password, role, bio, is_prescribed } =
+    req.body;
 
-  // Validate required fields
   if (!fullName || !phone || !password) {
     throw new ApiError(400, "Full name, phone and password are required");
   }
 
-  // Clean email - optional field
   const cleanedEmail = email && email.trim() !== "" ? email.trim() : undefined;
 
-  // Check if user already exists by phone or email
   const existingUserQuery = {
     $or: [{ phone }],
   };
@@ -84,10 +78,8 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(409, `${conflicts.join(", ")} already exists`);
   }
 
-  // Generate unique username from fullName
   const userName = await generateUniqueUsername(fullName);
 
-  // Handle profile image upload
   const files = req.files || {};
   const profileImage = files.profilePhoto
     ? `public/upload/${files.profilePhoto[0].filename}`
@@ -102,6 +94,7 @@ const registerUser = asyncHandler(async (req, res) => {
     ...(cleanedEmail && { email }),
     ...(bio && { bio }),
     ...(profileImage && { image: profileImage }),
+    ...(is_prescribed !== undefined && { is_prescribed }),
   };
 
   const user = await User.create(userData);
@@ -282,7 +275,6 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     throw new ApiError(404, "User not found");
   }
 
-  // Check unique fields
   if (userName && userName !== user.userName) {
     const existingUser = await User.findOne({ userName, _id: { $ne: userId } });
     if (existingUser) {
@@ -304,7 +296,6 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     }
   }
 
-  // Handle profile image upload
   const files = req.files || {};
   const profileImage = files.profilePhoto
     ? `public/upload/${files.profilePhoto[0].filename}`
@@ -380,6 +371,7 @@ const getListUsers = asyncHandler(async (req, res) => {
     sortBy = "createdAt",
     sortOrder = "desc",
     role,
+    is_prescribed,
   } = req.query;
 
   const query = {};
@@ -395,6 +387,10 @@ const getListUsers = asyncHandler(async (req, res) => {
 
   if (role) {
     query.role = role;
+  }
+
+  if (is_prescribed !== undefined) {
+    query.is_prescribed = is_prescribed === "true";
   }
 
   const sortOptions = {};
@@ -426,6 +422,59 @@ const getListUsers = asyncHandler(async (req, res) => {
   );
 });
 
+// Admin: Get prescribed users list
+const getPrescribedUsersList = asyncHandler(async (req, res) => {
+  const {
+    page = 1,
+    limit = 10,
+    search = "",
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = req.query;
+
+  const query = {
+    is_prescribed: true,
+    role: "customer",
+  };
+
+  if (search) {
+    query.$or = [
+      { fullName: { $regex: search, $options: "i" } },
+      { userName: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
+      { phone: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  const sortOptions = {};
+  sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
+
+  const users = await User.find(query)
+    .select("userName fullName email phone is_prescribed image")
+    .sort(sortOptions)
+    .limit(parseInt(limit))
+    .skip((parseInt(page) - 1) * parseInt(limit));
+
+  const totalCount = await User.countDocuments(query);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        users,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(totalCount / limit),
+          totalCount,
+          hasNext: page < Math.ceil(totalCount / limit),
+          hasPrev: page > 1,
+        },
+      },
+      "Prescribed users fetched successfully"
+    )
+  );
+});
+
 // Admin: Update user
 const updateUserByAdmin = asyncHandler(async (req, res) => {
   const { userId } = req.params;
@@ -436,6 +485,7 @@ const updateUserByAdmin = asyncHandler(async (req, res) => {
     email,
     role,
     is_active,
+    is_prescribed,
     bio,
     address,
     city,
@@ -450,7 +500,6 @@ const updateUserByAdmin = asyncHandler(async (req, res) => {
     throw new ApiError(404, "User not found");
   }
 
-  // Check unique fields
   if (userName && userName !== user.userName) {
     const existingUser = await User.findOne({ userName, _id: { $ne: userId } });
     if (existingUser) {
@@ -479,6 +528,7 @@ const updateUserByAdmin = asyncHandler(async (req, res) => {
     ...(email && { email }),
     ...(role && { role }),
     ...(is_active !== undefined && { is_active }),
+    ...(is_prescribed !== undefined && { is_prescribed }),
     ...(bio && { bio }),
     ...(address && { address }),
     ...(city && { city }),
@@ -523,6 +573,23 @@ const deleteUserByAdmin = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "User deleted successfully"));
 });
 
+// Get user by username (public)
+const getUserByUsername = asyncHandler(async (req, res) => {
+  const { userName } = req.params;
+
+  const user = await User.findOne({ userName }).select(
+    "userName fullName email phone image is_prescribed role"
+  );
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "User fetched successfully"));
+});
+
 export {
   registerUser,
   login,
@@ -532,6 +599,8 @@ export {
   updateUserProfile,
   updatePassword,
   getListUsers,
+  getPrescribedUsersList,
   updateUserByAdmin,
   deleteUserByAdmin,
+  getUserByUsername,
 };

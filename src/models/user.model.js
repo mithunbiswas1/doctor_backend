@@ -45,6 +45,10 @@ const userSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    is_prescribed: {
+      type: Boolean,
+      default: false,
+    },
     address: {
       type: String,
     },
