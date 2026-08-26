@@ -3,7 +3,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
-import { Service } from "../models/service.model.js";
+import { Service } from "../models/services.model.js";
 import mongoose from "mongoose";
 
 // Transform service data

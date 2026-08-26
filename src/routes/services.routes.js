@@ -1,4 +1,4 @@
-// routes/service.routes.js
+// routes/services.routes.js
 
 import { Router } from "express";
 import { verifyJWT } from "../middlewares/auth.middlewares.js";
@@ -14,7 +14,7 @@ import {
   deleteService,
   toggleServiceStatus,
   updateServiceOrder,
-} from "../controllers/service.controller.js";
+} from "../controllers/services.controller.js";
 
 // Public routes
 router.route("/get-active-services").get(getActiveServices);

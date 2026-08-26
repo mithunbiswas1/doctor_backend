@@ -16,13 +16,10 @@ import clientMessageRoutes from "./routes/clientMessage.routes.js";
 import testimonialRoutes from "./routes/testimonial.routes.js";
 import homeAllianceRouter from "./routes/homeAlliance.routes.js";
 import packageRouter from "./routes/package.routes.js";
-import categoryRouter from "./routes/category.routes.js";
-import itemRouter from "./routes/item.routes.js";
 import sectionRouter from "./routes/section.routes.js";
-import orderRouter from "./routes/order.routes.js";
 import prescriptionRouter from "./routes/prescription.routes.js";
+import servicesRouter from "./routes/services.routes.js";
 import appointmentRouter from "./routes/appointment.routes.js";
-import serviceRouter from "./routes/service.routes.js";
 
 // __dirname setup for ES Module
 const __filename = fileURLToPath(import.meta.url);
@@ -68,12 +65,9 @@ app.use("/api/v1", clientMessageRoutes);
 app.use("/api/v1", testimonialRoutes);
 app.use("/api/v1", homeAllianceRouter);
 app.use("/api/v1", packageRouter);
-app.use("/api/v1", categoryRouter);
-app.use("/api/v1", itemRouter);
 app.use("/api/v1", sectionRouter);
-app.use("/api/v1", orderRouter);
 app.use("/api/v1", prescriptionRouter);
+app.use("/api/v1", servicesRouter);
 app.use("/api/v1", appointmentRouter);
-app.use("/api/v1", serviceRouter);
 
 export { app };
