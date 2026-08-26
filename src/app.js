@@ -6,17 +6,11 @@ import { fileURLToPath } from "url";
 
 import userRouter from "./routes/user.routes.js";
 import blogRouter from "./routes/blog.routes.js";
-import projectRouter from "./routes/project.routes.js";
 import homeBannerRoutes from "./routes/homeBanner.routes.js";
-import homeCompanyRoutes from "./routes/homeCompany.routes.js";
-import homeIndustryRoutes from "./routes/homeIndustry.routes.js";
 import aboutRoutes from "./routes/about.routes.js";
 import settingRoutes from "./routes/setting.routes.js";
 import clientMessageRoutes from "./routes/clientMessage.routes.js";
 import testimonialRoutes from "./routes/testimonial.routes.js";
-import homeAllianceRouter from "./routes/homeAlliance.routes.js";
-import packageRouter from "./routes/package.routes.js";
-import sectionRouter from "./routes/section.routes.js";
 import prescriptionRouter from "./routes/prescription.routes.js";
 import servicesRouter from "./routes/services.routes.js";
 import appointmentRouter from "./routes/appointment.routes.js";
@@ -55,17 +49,11 @@ app.get("/", (req, res) => {
 // Routes
 app.use("/api/v1", userRouter);
 app.use("/api/v1", blogRouter);
-app.use("/api/v1", projectRouter);
 app.use("/api/v1", homeBannerRoutes);
-app.use("/api/v1", homeCompanyRoutes);
-app.use("/api/v1", homeIndustryRoutes);
 app.use("/api/v1", aboutRoutes);
 app.use("/api/v1", settingRoutes);
 app.use("/api/v1", clientMessageRoutes);
 app.use("/api/v1", testimonialRoutes);
-app.use("/api/v1", homeAllianceRouter);
-app.use("/api/v1", packageRouter);
-app.use("/api/v1", sectionRouter);
 app.use("/api/v1", prescriptionRouter);
 app.use("/api/v1", servicesRouter);
 app.use("/api/v1", appointmentRouter);
