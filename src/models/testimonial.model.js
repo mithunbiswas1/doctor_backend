@@ -1,50 +1,67 @@
 // src/models/testimonial.model.js
+
 import mongoose, { Schema } from "mongoose";
 
 const testimonialSchema = new Schema(
   {
-    message: {
-      type: String,
-      required: [true, "Testimonial message is required"],
-      trim: true,
-      maxlength: 1000,
-    },
+    // Patient Name
     name: {
       type: String,
       required: [true, "Name is required"],
       trim: true,
       maxlength: 100,
     },
-    position: {
+    name_hi: {
       type: String,
-      required: [true, "Position is required"],
       trim: true,
       maxlength: 100,
     },
-    company: {
+    // Comment
+    comment: {
       type: String,
-      required: [true, "Company name is required"],
+      required: [true, "Comment is required"],
       trim: true,
-      maxlength: 100,
+      maxlength: 500,
     },
+    comment_hi: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
+    // Video URL (YouTube embed)
+    video_url: {
+      type: String,
+      required: [true, "Video URL is required"],
+      trim: true,
+    },
+    // Patient Image
     image: {
       type: String,
-      default: "default-testimonial.png",
+      required: [true, "Patient image is required"],
     },
+    // Rating (1-5)
     rating: {
       type: Number,
+      default: 5,
       min: 1,
       max: 5,
-      default: 5,
     },
-    is_active: {
-      type: Boolean,
-      default: true,
-    },
+    // Order for sorting
     order: {
       type: Number,
       default: 0,
     },
+    // Featured testimonial (shown as main)
+    is_featured: {
+      type: Boolean,
+      default: false,
+    },
+    // Status
+    is_active: {
+      type: Boolean,
+      default: true,
+    },
+    // Metadata
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -60,21 +77,19 @@ const testimonialSchema = new Schema(
   }
 );
 
-// Indexes for better performance
+// Indexes
 testimonialSchema.index({ is_active: 1 });
 testimonialSchema.index({ order: 1 });
-testimonialSchema.index({ createdAt: -1 });
-testimonialSchema.index({ name: 1 });
+testimonialSchema.index({ is_featured: 1 });
 
 // Static method to get active testimonials
 testimonialSchema.statics.getActiveTestimonials = function () {
   return this.find({ is_active: true }).sort({ order: 1, createdAt: -1 });
 };
 
-// Instance method to toggle status
-testimonialSchema.methods.toggleStatus = function () {
-  this.is_active = !this.is_active;
-  return this.save();
+// Static method to get featured testimonial
+testimonialSchema.statics.getFeaturedTestimonial = function () {
+  return this.findOne({ is_active: true, is_featured: true });
 };
 
 export const Testimonial = mongoose.model("Testimonial", testimonialSchema);

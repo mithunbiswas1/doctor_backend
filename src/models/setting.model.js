@@ -1,209 +1,121 @@
 // src/models/setting.model.js
+
 import mongoose, { Schema } from "mongoose";
 
 const settingSchema = new Schema(
   {
-    // General Settings
-    websiteName: {
+    // Basic Settings
+    website_name: {
       type: String,
+      required: [true, "Website name is required"],
       trim: true,
-      default: "",
+      maxlength: 100,
     },
-    websiteTitle: {
+    website_name_hi: {
       type: String,
       trim: true,
-      default: "",
+      maxlength: 100,
     },
-    websiteDescription: {
+    tagline: {
       type: String,
       trim: true,
-      default: "",
+      maxlength: 200,
     },
-    websiteKeywords: {
+    tagline_hi: {
       type: String,
       trim: true,
-      default: "",
+      maxlength: 200,
     },
     logo: {
       type: String,
-      default: "",
-    },
-    logoWhite: {
-      type: String,
-      default: "",
+      required: [true, "Logo is required"],
     },
     favicon: {
       type: String,
-      default: "",
+      required: [true, "Favicon is required"],
     },
 
-    // Contact Information
-    phone: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    secondaryPhone: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    email: {
-      type: String,
-      trim: true,
-      lowercase: true,
-      default: "",
-    },
-    supportEmail: {
-      type: String,
-      trim: true,
-      lowercase: true,
-      default: "",
-    },
-    address: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    googleMapEmbed: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    googleMapLink: {
-      type: String,
-      trim: true,
-      default: "",
+    // Opening Hours (Array)
+    opening_hours: [
+      {
+        day: {
+          type: String,
+          required: true,
+        },
+        time: {
+          type: String,
+          required: true,
+        },
+        is_closed: {
+          type: Boolean,
+          default: false,
+        },
+      },
+    ],
+
+    // Contact
+    contact: {
+      phone: {
+        type: String,
+        trim: true,
+      },
+      emergency_phone: {
+        type: String,
+        trim: true,
+      },
+      whatsapp: {
+        type: String,
+        trim: true,
+      },
+      email: {
+        type: String,
+        trim: true,
+        lowercase: true,
+      },
+      address: {
+        type: String,
+        trim: true,
+      },
+      address_hi: {
+        type: String,
+        trim: true,
+      },
     },
 
-    // Social Media
-    facebook: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    instagram: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    linkedin: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    twitter: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    youtube: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    reddit: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    tiktok: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    github: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    pinterest: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    whatsapp: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-
-    // SEO Settings
-    metaTitle: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    metaDescription: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    metaKeywords: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    openGraphImage: {
-      type: String,
-      default: "",
-    },
-
-    // Analytics
-    googleAnalyticsId: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    googleTagManagerId: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-
-    // Email Settings
-    smtpHost: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    smtpPort: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    smtpUsername: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    smtpPassword: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    fromEmail: {
-      type: String,
-      trim: true,
-      lowercase: true,
-      default: "",
-    },
-    fromName: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-
-    // Footer Settings
-    footerAbout: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    copyright: {
-      type: String,
-      trim: true,
-      default: "",
+    // Social Links
+    social: {
+      facebook: {
+        type: String,
+        trim: true,
+      },
+      instagram: {
+        type: String,
+        trim: true,
+      },
+      youtube: {
+        type: String,
+        trim: true,
+      },
+      tiktok: {
+        type: String,
+        trim: true,
+      },
+      reddit: {
+        type: String,
+        trim: true,
+      },
+      google_map: {
+        type: String,
+        trim: true,
+      },
+      threads: {
+        type: String,
+        trim: true,
+      },
+      twitter: {
+        type: String,
+        trim: true,
+      },
     },
 
     // Status
@@ -211,9 +123,12 @@ const settingSchema = new Schema(
       type: Boolean,
       default: true,
     },
+
+    // Metadata
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
+      required: [true, "User is required"],
     },
     updatedBy: {
       type: Schema.Types.ObjectId,
@@ -225,9 +140,9 @@ const settingSchema = new Schema(
   }
 );
 
-// Indexes for better performance
+// Indexes
 settingSchema.index({ is_active: 1 });
-settingSchema.index({ createdAt: -1 });
+settingSchema.index({ website_name: 1 });
 
 // Static method to get active settings
 settingSchema.statics.getActiveSettings = function () {

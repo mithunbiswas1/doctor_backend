@@ -22,6 +22,7 @@ import sectionRouter from "./routes/section.routes.js";
 import orderRouter from "./routes/order.routes.js";
 import prescriptionRouter from "./routes/prescription.routes.js";
 import appointmentRouter from "./routes/appointment.routes.js";
+import serviceRouter from "./routes/service.routes.js";
 
 // __dirname setup for ES Module
 const __filename = fileURLToPath(import.meta.url);
@@ -73,5 +74,6 @@ app.use("/api/v1", sectionRouter);
 app.use("/api/v1", orderRouter);
 app.use("/api/v1", prescriptionRouter);
 app.use("/api/v1", appointmentRouter);
+app.use("/api/v1", serviceRouter);
 
 export { app };

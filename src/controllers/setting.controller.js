@@ -1,75 +1,69 @@
 // src/controllers/setting.controller.js
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { Setting } from "../models/setting.model.js";
 import mongoose from "mongoose";
 
-// Transform setting data for consistent response
-const transformSettingData = (setting) => {
+// Transform settings data
+const transformSettingsData = (settings) => {
   return {
-    id: setting._id.toString(),
-    // General
-    websiteName: setting.websiteName || "",
-    websiteTitle: setting.websiteTitle || "",
-    websiteDescription: setting.websiteDescription || "",
-    websiteKeywords: setting.websiteKeywords || "",
-    logo: setting.logo || "",
-    logoWhite: setting.logoWhite || "",
-    favicon: setting.favicon || "",
-    // Contact
-    phone: setting.phone || "",
-    secondaryPhone: setting.secondaryPhone || "",
-    email: setting.email || "",
-    supportEmail: setting.supportEmail || "",
-    address: setting.address || "",
-    googleMapEmbed: setting.googleMapEmbed || "",
-    googleMapLink: setting.googleMapLink || "",
-    // Social
-    facebook: setting.facebook || "",
-    instagram: setting.instagram || "",
-    linkedin: setting.linkedin || "",
-    twitter: setting.twitter || "",
-    youtube: setting.youtube || "",
-    reddit: setting.reddit || "",
-    tiktok: setting.tiktok || "",
-    github: setting.github || "",
-    pinterest: setting.pinterest || "",
-    whatsapp: setting.whatsapp || "",
-    // SEO
-    metaTitle: setting.metaTitle || "",
-    metaDescription: setting.metaDescription || "",
-    metaKeywords: setting.metaKeywords || "",
-    openGraphImage: setting.openGraphImage || "",
-    // Analytics
-    googleAnalyticsId: setting.googleAnalyticsId || "",
-    googleTagManagerId: setting.googleTagManagerId || "",
-    // Email
-    smtpHost: setting.smtpHost || "",
-    smtpPort: setting.smtpPort || "",
-    smtpUsername: setting.smtpUsername || "",
-    smtpPassword: setting.smtpPassword || "",
-    fromEmail: setting.fromEmail || "",
-    fromName: setting.fromName || "",
-    // Footer
-    footerAbout: setting.footerAbout || "",
-    copyright: setting.copyright || "",
-    // Meta
-    is_active: setting.is_active,
-    createdBy: setting.createdBy,
-    updatedBy: setting.updatedBy,
-    createdAt: setting.createdAt,
-    updatedAt: setting.updatedAt,
+    id: settings._id.toString(),
+    website_name: settings.website_name,
+    website_name_hi: settings.website_name_hi || "",
+    tagline: settings.tagline || "",
+    tagline_hi: settings.tagline_hi || "",
+    logo: settings.logo,
+    favicon: settings.favicon,
+    opening_hours: settings.opening_hours || [],
+    contact: {
+      phone: settings.contact?.phone || "",
+      emergency_phone: settings.contact?.emergency_phone || "",
+      whatsapp: settings.contact?.whatsapp || "",
+      email: settings.contact?.email || "",
+      address: settings.contact?.address || "",
+      address_hi: settings.contact?.address_hi || "",
+    },
+    social: {
+      facebook: settings.social?.facebook || "",
+      instagram: settings.social?.instagram || "",
+      youtube: settings.social?.youtube || "",
+      tiktok: settings.social?.tiktok || "",
+      reddit: settings.social?.reddit || "",
+      google_map: settings.social?.google_map || "",
+      threads: settings.social?.threads || "",
+      twitter: settings.social?.twitter || "",
+    },
+    is_active: settings.is_active,
+    createdBy: settings.createdBy,
+    updatedBy: settings.updatedBy,
+    createdAt: settings.createdAt,
+    updatedAt: settings.updatedAt,
   };
 };
 
-// Create or Update Settings API
+// Create or Update Settings
 const createOrUpdateSettings = asyncHandler(async (req, res) => {
-  const updateData = req.body;
+  const {
+    website_name,
+    website_name_hi,
+    tagline,
+    tagline_hi,
+    opening_hours,
+    contact,
+    social,
+    is_active,
+  } = req.body;
+
   const userId = req.user._id;
 
-  if (!userId) {
-    throw new ApiError(400, "User is required");
+  // Required field validation
+  if (!website_name) {
+    throw new ApiError(400, "Website name is required");
+  }
+  if (!req.files || !req.files.logo || !req.files.favicon) {
+    throw new ApiError(400, "Both logo and favicon are required");
   }
 
   // Check if user exists
@@ -78,39 +72,81 @@ const createOrUpdateSettings = asyncHandler(async (req, res) => {
     throw new ApiError(404, "User not found");
   }
 
-  // Handle file uploads
-  if (req.files) {
-    if (req.files.logo) {
-      updateData.logo = `public/upload/${req.files.logo[0].filename}`;
-    }
-    if (req.files.logoWhite) {
-      updateData.logoWhite = `public/upload/${req.files.logoWhite[0].filename}`;
-    }
-    if (req.files.favicon) {
-      updateData.favicon = `public/upload/${req.files.favicon[0].filename}`;
-    }
-    if (req.files.openGraphImage) {
-      updateData.openGraphImage = `public/upload/${req.files.openGraphImage[0].filename}`;
+  // Parse opening_hours if it's a string
+  let parsedOpeningHours = opening_hours;
+  if (typeof opening_hours === "string") {
+    try {
+      parsedOpeningHours = JSON.parse(opening_hours);
+    } catch {
+      parsedOpeningHours = [];
     }
   }
 
-  // Check if settings already exists
-  let existingSettings = await Setting.findOne();
+  // Parse contact if it's a string
+  let parsedContact = contact;
+  if (typeof contact === "string") {
+    try {
+      parsedContact = JSON.parse(contact);
+    } catch {
+      parsedContact = {};
+    }
+  }
 
-  // Add updatedBy
-  updateData.updatedBy = userId;
+  // Parse social if it's a string
+  let parsedSocial = social;
+  if (typeof social === "string") {
+    try {
+      parsedSocial = JSON.parse(social);
+    } catch {
+      parsedSocial = {};
+    }
+  }
 
-  let settings;
+  // Prepare update data
+  const updateData = {
+    website_name,
+    website_name_hi: website_name_hi || "",
+    tagline: tagline || "",
+    tagline_hi: tagline_hi || "",
+    logo: `public/upload/${req.files.logo[0].filename}`,
+    favicon: `public/upload/${req.files.favicon[0].filename}`,
+    opening_hours: parsedOpeningHours || [],
+    contact: {
+      phone: parsedContact?.phone || "",
+      emergency_phone: parsedContact?.emergency_phone || "",
+      whatsapp: parsedContact?.whatsapp || "",
+      email: parsedContact?.email || "",
+      address: parsedContact?.address || "",
+      address_hi: parsedContact?.address_hi || "",
+    },
+    social: {
+      facebook: parsedSocial?.facebook || "",
+      instagram: parsedSocial?.instagram || "",
+      youtube: parsedSocial?.youtube || "",
+      tiktok: parsedSocial?.tiktok || "",
+      reddit: parsedSocial?.reddit || "",
+      google_map: parsedSocial?.google_map || "",
+      threads: parsedSocial?.threads || "",
+      twitter: parsedSocial?.twitter || "",
+    },
+    updatedBy: userId,
+  };
 
-  if (existingSettings) {
-    // Update existing settings
+  // Handle is_active
+  if (is_active !== undefined) {
+    updateData.is_active = is_active === "true" || is_active === true;
+  }
+
+  // Find existing settings or create new one
+  let settings = await Setting.findOne();
+
+  if (settings) {
     settings = await Setting.findByIdAndUpdate(
-      existingSettings._id,
+      settings._id,
       { $set: updateData },
       { new: true, runValidators: true }
     ).populate("createdBy updatedBy", "userName fullName bio image");
   } else {
-    // Create new settings
     updateData.createdBy = userId;
     settings = await Setting.create(updateData);
     settings = await Setting.findById(settings._id).populate(
@@ -119,11 +155,7 @@ const createOrUpdateSettings = asyncHandler(async (req, res) => {
     );
   }
 
-  if (!settings) {
-    throw new ApiError(500, "Something went wrong while saving settings");
-  }
-
-  const transformedSettings = transformSettingData(settings);
+  const transformedSettings = transformSettingsData(settings);
 
   return res
     .status(200)
@@ -131,14 +163,14 @@ const createOrUpdateSettings = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         transformedSettings,
-        existingSettings
+        settings
           ? "Settings updated successfully"
           : "Settings created successfully"
       )
     );
 });
 
-// Get Settings API
+// Get Settings
 const getSettings = asyncHandler(async (req, res) => {
   const settings = await Setting.findOne().populate(
     "createdBy updatedBy",
@@ -149,7 +181,7 @@ const getSettings = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Settings not found");
   }
 
-  const transformedSettings = transformSettingData(settings);
+  const transformedSettings = transformSettingsData(settings);
 
   return res
     .status(200)
@@ -158,55 +190,159 @@ const getSettings = asyncHandler(async (req, res) => {
     );
 });
 
-// Get Settings by ID API
-const getSettingsById = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-
-  if (!id) {
-    throw new ApiError(400, "Settings ID is required");
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Invalid Settings ID format");
-  }
-
-  const settings = await Setting.findById(id).populate(
-    "createdBy updatedBy",
+// Get Active Settings (for frontend)
+const getActiveSettings = asyncHandler(async (req, res) => {
+  const settings = await Setting.findOne({ is_active: true }).populate(
+    "createdBy",
     "userName fullName bio image"
   );
 
   if (!settings) {
-    throw new ApiError(404, "Settings not found");
+    throw new ApiError(404, "Active settings not found");
   }
 
-  const transformedSettings = transformSettingData(settings);
+  const transformedSettings = transformSettingsData(settings);
 
   return res
     .status(200)
     .json(
-      new ApiResponse(200, transformedSettings, "Settings fetched successfully")
+      new ApiResponse(
+        200,
+        transformedSettings,
+        "Active settings fetched successfully"
+      )
     );
 });
 
-// Toggle Settings Status API
+// Update Settings
+const updateSettings = asyncHandler(async (req, res) => {
+  const {
+    website_name,
+    website_name_hi,
+    tagline,
+    tagline_hi,
+    opening_hours,
+    contact,
+    social,
+    is_active,
+  } = req.body;
+
+  const userId = req.user._id;
+
+  // Find existing settings
+  const settings = await Setting.findOne();
+  if (!settings) {
+    throw new ApiError(404, "Settings not found");
+  }
+
+  // Parse opening_hours if it's a string
+  let parsedOpeningHours = opening_hours;
+  if (typeof opening_hours === "string") {
+    try {
+      parsedOpeningHours = JSON.parse(opening_hours);
+    } catch {
+      parsedOpeningHours = [];
+    }
+  }
+
+  // Parse contact if it's a string
+  let parsedContact = contact;
+  if (typeof contact === "string") {
+    try {
+      parsedContact = JSON.parse(contact);
+    } catch {
+      parsedContact = {};
+    }
+  }
+
+  // Parse social if it's a string
+  let parsedSocial = social;
+  if (typeof social === "string") {
+    try {
+      parsedSocial = JSON.parse(social);
+    } catch {
+      parsedSocial = {};
+    }
+  }
+
+  // Prepare update data
+  const updateData = {};
+
+  if (website_name) updateData.website_name = website_name;
+  if (website_name_hi !== undefined)
+    updateData.website_name_hi = website_name_hi;
+  if (tagline !== undefined) updateData.tagline = tagline;
+  if (tagline_hi !== undefined) updateData.tagline_hi = tagline_hi;
+  if (parsedOpeningHours) updateData.opening_hours = parsedOpeningHours;
+
+  if (parsedContact) {
+    updateData.contact = {
+      phone: parsedContact?.phone || "",
+      emergency_phone: parsedContact?.emergency_phone || "",
+      whatsapp: parsedContact?.whatsapp || "",
+      email: parsedContact?.email || "",
+      address: parsedContact?.address || "",
+      address_hi: parsedContact?.address_hi || "",
+    };
+  }
+
+  if (parsedSocial) {
+    updateData.social = {
+      facebook: parsedSocial?.facebook || "",
+      instagram: parsedSocial?.instagram || "",
+      youtube: parsedSocial?.youtube || "",
+      tiktok: parsedSocial?.tiktok || "",
+      reddit: parsedSocial?.reddit || "",
+      google_map: parsedSocial?.google_map || "",
+      threads: parsedSocial?.threads || "",
+      twitter: parsedSocial?.twitter || "",
+    };
+  }
+
+  // Handle file uploads
+  if (req.files) {
+    if (req.files.logo) {
+      updateData.logo = `public/upload/${req.files.logo[0].filename}`;
+    }
+    if (req.files.favicon) {
+      updateData.favicon = `public/upload/${req.files.favicon[0].filename}`;
+    }
+  }
+
+  // Handle is_active
+  if (is_active !== undefined) {
+    updateData.is_active = is_active === "true" || is_active === true;
+  }
+
+  // Add updatedBy
+  updateData.updatedBy = userId;
+
+  // Update settings
+  const updatedSettings = await Setting.findByIdAndUpdate(
+    settings._id,
+    { $set: updateData },
+    { new: true, runValidators: true }
+  ).populate("createdBy updatedBy", "userName fullName bio image");
+
+  const transformedSettings = transformSettingsData(updatedSettings);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, transformedSettings, "Settings updated successfully")
+    );
+});
+
+// Toggle Settings Status
 const toggleSettingsStatus = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  const settings = await Setting.findOne();
 
-  if (!id) {
-    throw new ApiError(400, "Settings ID is required");
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Invalid Settings ID format");
-  }
-
-  const settings = await Setting.findById(id);
   if (!settings) {
     throw new ApiError(404, "Settings not found");
   }
 
   const updatedSettings = await Setting.findByIdAndUpdate(
-    id,
+    settings._id,
     {
       is_active: !settings.is_active,
       updatedBy: req.user?._id || settings.createdBy,
@@ -214,7 +350,7 @@ const toggleSettingsStatus = asyncHandler(async (req, res) => {
     { new: true }
   ).populate("createdBy updatedBy", "userName fullName bio image");
 
-  const transformedSettings = transformSettingData(updatedSettings);
+  const transformedSettings = transformSettingsData(updatedSettings);
 
   return res
     .status(200)
@@ -230,6 +366,7 @@ const toggleSettingsStatus = asyncHandler(async (req, res) => {
 export {
   createOrUpdateSettings,
   getSettings,
-  getSettingsById,
+  getActiveSettings,
+  updateSettings,
   toggleSettingsStatus,
 };

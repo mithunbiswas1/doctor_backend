@@ -1,4 +1,5 @@
-// src/routes/testimonial.routes.js
+// routes/testimonial.routes.js
+
 import { Router } from "express";
 import { upload } from "../middlewares/multer.middlewares.js";
 import { verifyJWT } from "../middlewares/auth.middlewares.js";
@@ -7,24 +8,25 @@ const router = Router();
 
 import {
   createTestimonial,
-  getTestimonialById,
-  getTestimonialList,
+  getTestimonials,
   getActiveTestimonials,
+  getFeaturedTestimonial,
+  getTestimonialById,
   updateTestimonial,
   deleteTestimonial,
   toggleTestimonialStatus,
   updateTestimonialOrder,
 } from "../controllers/testimonial.controller.js";
 
-// Configure multer for single file upload
 const testimonialUpload = upload.single("image");
 
 // Public routes
 router.route("/get-active-testimonials").get(getActiveTestimonials);
-router.route("/get-testimonial-list").get(getTestimonialList);
+router.route("/get-featured-testimonial").get(getFeaturedTestimonial);
+router.route("/get-testimonials").get(getTestimonials);
 router.route("/get-testimonial-by-id/:id").get(getTestimonialById);
 
-// Protected routes (require authentication)
+// Protected routes
 router
   .route("/create-testimonial")
   .post(verifyJWT, testimonialUpload, createTestimonial);
