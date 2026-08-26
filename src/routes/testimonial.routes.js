@@ -20,7 +20,7 @@ import {
 
 const testimonialUpload = upload.single("image");
 
-// Public routes
+// Public routes -
 router.route("/get-active-testimonials").get(getActiveTestimonials);
 router.route("/get-featured-testimonial").get(getFeaturedTestimonial);
 router.route("/get-testimonials").get(getTestimonials);
