@@ -4,47 +4,80 @@ import mongoose, { Schema } from "mongoose";
 
 const homeBannerSchema = new Schema(
   {
+    // Heading / Welcome Text
+    heading: {
+      type: String,
+      required: [true, "Heading is required"],
+      trim: true,
+      maxlength: 100,
+    },
+    heading_hi: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+    },
+
+    // Doctor Name
+    name: {
+      type: String,
+      required: [true, "Doctor name is required"],
+      trim: true,
+      maxlength: 100,
+    },
+    name_hi: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+    },
+
+    // Degrees (Array)
+    degree: {
+      type: [String],
+      required: [true, "At least one degree is required"],
+    },
+    degree_hi: {
+      type: [String],
+    },
+
+    // Designation / Title
+    designation: {
+      type: String,
+      required: [true, "Designation is required"],
+      trim: true,
+      maxlength: 200,
+    },
+    designation_hi: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+
+    // Short Description
+    short_description: {
+      type: String,
+      required: [true, "Short description is required"],
+      trim: true,
+      maxlength: 500,
+    },
+    short_description_hi: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
+
+    // Banner Image
     banner_image: {
       type: String,
       required: [true, "Banner image is required"],
     },
-    first_title: {
-      type: String,
-      required: [true, "First title is required"],
-      trim: true,
-      maxlength: 100,
-    },
-    sub_title: {
-      type: String,
-      trim: true,
-      maxlength: 300,
-      default: "",
-    },
-    middle_title: {
-      type: String,
-      required: [true, "Middle title is required"],
-      trim: true,
-      maxlength: 100,
-    },
-    last_title: {
-      type: String,
-      required: [true, "Last title is required"],
-      trim: true,
-      maxlength: 100,
-    },
-    url: {
-      type: String,
-      trim: true,
-      default: "",
-    },
+
+    // Status
     is_active: {
       type: Boolean,
       default: true,
     },
-    order: {
-      type: Number,
-      default: 0,
-    },
+
+    // Metadata
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -62,12 +95,11 @@ const homeBannerSchema = new Schema(
 
 // Indexes for better performance
 homeBannerSchema.index({ is_active: 1 });
-homeBannerSchema.index({ order: 1 });
 homeBannerSchema.index({ createdAt: -1 });
 
-// Static method to get active banners
-homeBannerSchema.statics.getActiveBanners = function () {
-  return this.find({ is_active: true }).sort({ order: 1, createdAt: -1 });
+// Static method to get active banner
+homeBannerSchema.statics.getActiveBanner = function () {
+  return this.findOne({ is_active: true });
 };
 
 // Instance method to toggle status

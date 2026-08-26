@@ -1,4 +1,5 @@
 // src/controllers/homeBanner.controller.js
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
@@ -9,14 +10,18 @@ import mongoose from "mongoose";
 const transformBannerData = (banner) => {
   return {
     id: banner._id.toString(),
+    heading: banner.heading,
+    heading_hi: banner.heading_hi || "",
+    name: banner.name,
+    name_hi: banner.name_hi || "",
+    degree: banner.degree || [],
+    degree_hi: banner.degree_hi || [],
+    designation: banner.designation,
+    designation_hi: banner.designation_hi || "",
+    short_description: banner.short_description,
+    short_description_hi: banner.short_description_hi || "",
     banner_image: banner.banner_image,
-    first_title: banner.first_title,
-    sub_title: banner.sub_title || "",
-    middle_title: banner.middle_title,
-    last_title: banner.last_title,
-    url: banner.url || "",
     is_active: banner.is_active,
-    order: banner.order,
     createdBy: banner.createdBy,
     updatedBy: banner.updatedBy,
     createdAt: banner.createdAt,
@@ -24,46 +29,62 @@ const transformBannerData = (banner) => {
   };
 };
 
-// Create Home Banner API
-const createHomeBanner = asyncHandler(async (req, res) => {
+// Create or Update Home Banner (Single Document)
+const createOrUpdateHomeBanner = asyncHandler(async (req, res) => {
   const {
-    first_title,
-    sub_title,
-    middle_title,
-    last_title,
-    url,
+    heading,
+    heading_hi,
+    name,
+    name_hi,
+    degree,
+    degree_hi,
+    designation,
+    designation_hi,
+    short_description,
+    short_description_hi,
     is_active,
-    order,
   } = req.body;
 
   const userId = req.user._id;
 
-  // Handle file upload
-  let bannerImage = "default-banner.png";
-
-  if (req.file) {
-    bannerImage = `public/upload/${req.file.filename}`;
-  }
-
   // Required field validation
-  if (!first_title) {
-    throw new ApiError(400, "First title is required");
+  if (!heading) {
+    throw new ApiError(400, "Heading is required");
   }
-
-  if (!middle_title) {
-    throw new ApiError(400, "Middle title is required");
+  if (!name) {
+    throw new ApiError(400, "Doctor name is required");
   }
-
-  if (!last_title) {
-    throw new ApiError(400, "Last title is required");
+  if (!degree || degree.length === 0) {
+    throw new ApiError(400, "At least one degree is required");
   }
-
+  if (!designation) {
+    throw new ApiError(400, "Designation is required");
+  }
+  if (!short_description) {
+    throw new ApiError(400, "Short description is required");
+  }
   if (!req.file) {
     throw new ApiError(400, "Banner image is required");
   }
 
-  if (!userId) {
-    throw new ApiError(400, "User is required");
+  // Parse degree arrays if they come as strings
+  let parsedDegree = degree;
+  let parsedDegreeHi = degree_hi;
+
+  if (typeof degree === "string") {
+    try {
+      parsedDegree = JSON.parse(degree);
+    } catch {
+      parsedDegree = degree.split(",").map((d) => d.trim());
+    }
+  }
+
+  if (typeof degree_hi === "string") {
+    try {
+      parsedDegreeHi = JSON.parse(degree_hi);
+    } catch {
+      parsedDegreeHi = degree_hi.split(",").map((d) => d.trim());
+    }
   }
 
   // Check if user exists
@@ -72,60 +93,67 @@ const createHomeBanner = asyncHandler(async (req, res) => {
     throw new ApiError(404, "User not found");
   }
 
-  // Create banner data
-  const bannerData = {
-    banner_image: bannerImage,
-    first_title,
-    sub_title: sub_title || "",
-    middle_title,
-    last_title,
-    url: url || "",
-    is_active: is_active !== undefined ? is_active : true,
-    order: order || 0,
-    createdBy: userId,
+  // Prepare update data
+  const updateData = {
+    heading,
+    heading_hi: heading_hi || "",
+    name,
+    name_hi: name_hi || "",
+    degree: parsedDegree,
+    degree_hi: parsedDegreeHi || [],
+    designation,
+    designation_hi: designation_hi || "",
+    short_description,
+    short_description_hi: short_description_hi || "",
+    updatedBy: userId,
   };
 
-  try {
-    const banner = await HomeBanner.create(bannerData);
+  // Handle file upload
+  if (req.file) {
+    updateData.banner_image = `public/upload/${req.file.filename}`;
+  }
 
-    const createdBanner = await HomeBanner.findById(banner._id).populate(
-      "createdBy",
+  // Handle is_active
+  if (is_active !== undefined) {
+    updateData.is_active = is_active === "true" || is_active === true;
+  }
+
+  // Find existing banner or create new one
+  let banner = await HomeBanner.findOne();
+
+  if (banner) {
+    // Update existing banner
+    banner = await HomeBanner.findByIdAndUpdate(
+      banner._id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).populate("createdBy updatedBy", "userName fullName bio image");
+  } else {
+    // Create new banner
+    updateData.createdBy = userId;
+    banner = await HomeBanner.create(updateData);
+    banner = await HomeBanner.findById(banner._id).populate(
+      "createdBy updatedBy",
       "userName fullName bio image"
     );
-
-    if (!createdBanner) {
-      throw new ApiError(500, "Something went wrong while creating banner");
-    }
-
-    const transformedBanner = transformBannerData(createdBanner);
-
-    return res
-      .status(201)
-      .json(
-        new ApiResponse(201, transformedBanner, "Banner created successfully")
-      );
-  } catch (error) {
-    console.error("Banner creation error:", error);
-    if (error.name === "ValidationError") {
-      throw new ApiError(400, `Banner validation failed: ${error.message}`);
-    }
-    throw new ApiError(500, "Internal server error while creating banner");
   }
+
+  const transformedBanner = transformBannerData(banner);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        transformedBanner,
+        banner ? "Banner updated successfully" : "Banner created successfully"
+      )
+    );
 });
 
-// Get Home Banner by ID API
-const getHomeBannerById = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-
-  if (!id) {
-    throw new ApiError(400, "Banner ID is required");
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Invalid Banner ID format");
-  }
-
-  const banner = await HomeBanner.findById(id).populate(
+// Get Home Banner (Single Document)
+const getHomeBanner = asyncHandler(async (req, res) => {
+  const banner = await HomeBanner.findOne().populate(
     "createdBy updatedBy",
     "userName fullName bio image"
   );
@@ -143,144 +171,108 @@ const getHomeBannerById = asyncHandler(async (req, res) => {
     );
 });
 
-// Get All Home Banners List API (with pagination, search, filter)
-const getHomeBannerList = asyncHandler(async (req, res) => {
-  const {
-    page = 1,
-    limit = 10,
-    search = "",
-    sortBy = "createdAt",
-    sortOrder = "desc",
-    is_active,
-  } = req.query;
-
-  // Build query object
-  const query = {};
-
-  // Search functionality
-  if (search) {
-    query.$or = [
-      { first_title: { $regex: search, $options: "i" } },
-      { sub_title: { $regex: search, $options: "i" } },
-      { middle_title: { $regex: search, $options: "i" } },
-      { last_title: { $regex: search, $options: "i" } },
-      { url: { $regex: search, $options: "i" } },
-    ];
-  }
-
-  // Filter by active status
-  if (is_active !== undefined) {
-    query.is_active = is_active === "true";
-  }
-
-  // Sort options
-  const sortOptions = {};
-  if (sortBy) {
-    sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
-  }
-
-  // Execute query with pagination
-  const banners = await HomeBanner.find(query)
-    .populate("createdBy updatedBy", "userName fullName bio image")
-    .sort(sortOptions)
-    .limit(parseInt(limit))
-    .skip((parseInt(page) - 1) * parseInt(limit));
-
-  // Transform banners data
-  const transformedBanners = banners.map((banner) =>
-    transformBannerData(banner)
+// Get Active Home Banner (for frontend)
+const getActiveHomeBanner = asyncHandler(async (req, res) => {
+  const banner = await HomeBanner.findOne({ is_active: true }).populate(
+    "createdBy",
+    "userName fullName bio image"
   );
 
-  // Get total count for pagination
-  const totalCount = await HomeBanner.countDocuments(query);
+  if (!banner) {
+    throw new ApiError(404, "Active banner not found");
+  }
 
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      {
-        banners: transformedBanners,
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages: Math.ceil(totalCount / parseInt(limit)),
-          totalCount,
-          hasNext: parseInt(page) < Math.ceil(totalCount / parseInt(limit)),
-          hasPrev: parseInt(page) > 1,
-        },
-      },
-      "Banners fetched successfully"
-    )
-  );
-});
-
-// Get Active Home Banners List API (for frontend)
-const getActiveHomeBanners = asyncHandler(async (req, res) => {
-  const banners = await HomeBanner.find({ is_active: true })
-    .sort({ order: 1, createdAt: -1 })
-    .populate("createdBy", "userName fullName bio image");
-
-  const transformedBanners = banners.map((banner) =>
-    transformBannerData(banner)
-  );
+  const transformedBanner = transformBannerData(banner);
 
   return res
     .status(200)
     .json(
       new ApiResponse(
         200,
-        transformedBanners,
-        "Active banners fetched successfully"
+        transformedBanner,
+        "Active banner fetched successfully"
       )
     );
 });
 
-// Update Home Banner API
+// Update Home Banner
 const updateHomeBanner = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  let updateData = req.body;
+  const {
+    heading,
+    heading_hi,
+    name,
+    name_hi,
+    degree,
+    degree_hi,
+    designation,
+    designation_hi,
+    short_description,
+    short_description_hi,
+    is_active,
+  } = req.body;
 
-  if (!id) {
-    throw new ApiError(400, "Banner ID is required");
-  }
+  const userId = req.user._id;
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Invalid Banner ID format");
-  }
-
-  const banner = await HomeBanner.findById(id);
+  // Find existing banner
+  const banner = await HomeBanner.findOne();
   if (!banner) {
     throw new ApiError(404, "Banner not found");
   }
 
-  // Parse boolean fields that might come as strings
-  const booleanFields = ["is_active"];
+  // Prepare update data
+  const updateData = {};
 
-  booleanFields.forEach((field) => {
-    if (updateData[field] !== undefined) {
-      if (updateData[field] === "true" || updateData[field] === "false") {
-        updateData[field] = updateData[field] === "true";
+  if (heading) updateData.heading = heading;
+  if (heading_hi !== undefined) updateData.heading_hi = heading_hi;
+  if (name) updateData.name = name;
+  if (name_hi !== undefined) updateData.name_hi = name_hi;
+  if (designation) updateData.designation = designation;
+  if (designation_hi !== undefined) updateData.designation_hi = designation_hi;
+  if (short_description) updateData.short_description = short_description;
+  if (short_description_hi !== undefined)
+    updateData.short_description_hi = short_description_hi;
+
+  // Handle degree arrays
+  if (degree) {
+    let parsedDegree = degree;
+    if (typeof degree === "string") {
+      try {
+        parsedDegree = JSON.parse(degree);
+      } catch {
+        parsedDegree = degree.split(",").map((d) => d.trim());
       }
     }
-  });
+    updateData.degree = parsedDegree;
+  }
+
+  if (degree_hi !== undefined) {
+    let parsedDegreeHi = degree_hi;
+    if (typeof degree_hi === "string") {
+      try {
+        parsedDegreeHi = JSON.parse(degree_hi);
+      } catch {
+        parsedDegreeHi = degree_hi.split(",").map((d) => d.trim());
+      }
+    }
+    updateData.degree_hi = parsedDegreeHi;
+  }
 
   // Handle file upload
   if (req.file) {
     updateData.banner_image = `public/upload/${req.file.filename}`;
   }
 
-  // Add updatedBy field
-  if (req.user?._id) {
-    updateData.updatedBy = req.user._id;
+  // Handle is_active
+  if (is_active !== undefined) {
+    updateData.is_active = is_active === "true" || is_active === true;
   }
 
-  // Remove any undefined or null fields
-  Object.keys(updateData).forEach((key) => {
-    if (updateData[key] === undefined || updateData[key] === null) {
-      delete updateData[key];
-    }
-  });
+  // Add updatedBy
+  updateData.updatedBy = userId;
 
+  // Update banner
   const updatedBanner = await HomeBanner.findByIdAndUpdate(
-    id,
+    banner._id,
     { $set: updateData },
     { new: true, runValidators: true }
   ).populate("createdBy updatedBy", "userName fullName bio image");
@@ -294,68 +286,16 @@ const updateHomeBanner = asyncHandler(async (req, res) => {
     );
 });
 
-// Delete Home Banner API - Hard Delete
-const deleteHomeBanner = asyncHandler(async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    if (!id) {
-      throw new ApiError(400, "Banner ID is required");
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw new ApiError(400, "Invalid Banner ID format");
-    }
-
-    const banner = await HomeBanner.findById(id);
-
-    if (!banner) {
-      throw new ApiError(404, "Banner not found");
-    }
-
-    // Hard Delete - Database থেকে সম্পূর্ণ Remove
-    await HomeBanner.findByIdAndDelete(id);
-
-    return res.status(200).json(
-      new ApiResponse(
-        200,
-        {
-          deletedId: id,
-          message: "Banner permanently deleted from database",
-        },
-        "Banner deleted successfully"
-      )
-    );
-  } catch (error) {
-    console.error("Delete banner error:", error);
-
-    if (error instanceof ApiError) {
-      throw error;
-    }
-
-    throw new ApiError(500, "Internal server error while deleting banner");
-  }
-});
-
-// Toggle Home Banner Status API
+// Toggle Home Banner Status
 const toggleHomeBannerStatus = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  const banner = await HomeBanner.findOne();
 
-  if (!id) {
-    throw new ApiError(400, "Banner ID is required");
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Invalid Banner ID format");
-  }
-
-  const banner = await HomeBanner.findById(id);
   if (!banner) {
     throw new ApiError(404, "Banner not found");
   }
 
   const updatedBanner = await HomeBanner.findByIdAndUpdate(
-    id,
+    banner._id,
     {
       is_active: !banner.is_active,
       updatedBy: req.user?._id || banner.createdBy,
@@ -376,56 +316,33 @@ const toggleHomeBannerStatus = asyncHandler(async (req, res) => {
     );
 });
 
-// Bulk Update Order API
-const updateBannerOrder = asyncHandler(async (req, res) => {
-  const { banners } = req.body; // [{id: "bannerId", order: 0}]
+// Delete Home Banner
+const deleteHomeBanner = asyncHandler(async (req, res) => {
+  const banner = await HomeBanner.findOne();
 
-  if (!banners || !Array.isArray(banners) || banners.length === 0) {
-    throw new ApiError(400, "Banners data is required");
+  if (!banner) {
+    throw new ApiError(404, "Banner not found");
   }
 
-  const bulkOperations = banners.map((item) => ({
-    updateOne: {
-      filter: { _id: item.id },
-      update: {
-        $set: {
-          order: item.order,
-          updatedBy: req.user?._id,
-        },
+  await HomeBanner.findByIdAndDelete(banner._id);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        deletedId: banner._id,
+        message: "Banner permanently deleted from database",
       },
-    },
-  }));
-
-  await HomeBanner.bulkWrite(bulkOperations);
-
-  const updatedBanners = await HomeBanner.find({
-    _id: { $in: banners.map((item) => item.id) },
-  })
-    .populate("createdBy updatedBy", "userName fullName bio image")
-    .sort({ order: 1 });
-
-  const transformedBanners = updatedBanners.map((banner) =>
-    transformBannerData(banner)
+      "Banner deleted successfully"
+    )
   );
-
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        transformedBanners,
-        "Banner order updated successfully"
-      )
-    );
 });
 
 export {
-  createHomeBanner,
-  getHomeBannerById,
-  getHomeBannerList,
-  getActiveHomeBanners,
+  createOrUpdateHomeBanner,
+  getHomeBanner,
+  getActiveHomeBanner,
   updateHomeBanner,
-  deleteHomeBanner,
   toggleHomeBannerStatus,
-  updateBannerOrder,
+  deleteHomeBanner,
 };

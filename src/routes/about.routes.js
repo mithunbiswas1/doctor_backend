@@ -1,4 +1,5 @@
-// src/routes/about.routes.js
+// routes/about.routes.js
+
 import { Router } from "express";
 import { upload } from "../middlewares/multer.middlewares.js";
 import { verifyJWT } from "../middlewares/auth.middlewares.js";
@@ -8,24 +9,28 @@ const router = Router();
 import {
   createOrUpdateAbout,
   getAbout,
-  getAboutById,
+  getActiveAbout,
+  updateAbout,
   toggleAboutStatus,
+  deleteAbout,
 } from "../controllers/about.controller.js";
 
-// Configure multer for multiple file uploads
+// Configure multer for multiple files
 const aboutUpload = upload.fields([
-  { name: "banner_image", maxCount: 1 },
+  { name: "page_banner_image", maxCount: 1 },
   { name: "chairman_image", maxCount: 1 },
 ]);
 
 // Public routes
 router.route("/get-about").get(getAbout);
-router.route("/get-about-by-id/:id").get(getAboutById);
+router.route("/get-active-about").get(getActiveAbout);
 
-// Protected routes (require authentication)
+// Protected routes
 router
   .route("/create-or-update-about")
   .post(verifyJWT, aboutUpload, createOrUpdateAbout);
-router.route("/toggle-about-status/:id").patch(verifyJWT, toggleAboutStatus);
+router.route("/update-about").put(verifyJWT, aboutUpload, updateAbout);
+router.route("/toggle-about-status").patch(verifyJWT, toggleAboutStatus);
+router.route("/delete-about").delete(verifyJWT, deleteAbout);
 
 export default router;
