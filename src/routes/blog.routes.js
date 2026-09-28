@@ -1,43 +1,48 @@
-// src/routes/blog.routes.js
+// ael_backend/src/routes/blog.routes.js
 
 import { Router } from "express";
 import { upload } from "../middlewares/multer.middlewares.js";
 import { verifyJWT } from "../middlewares/auth.middlewares.js";
+import { checkPermission } from "../middlewares/permission.middlewares.js";
+import {
+  getPublicBlogs,
+  getPublicBlogBySlug,
+  getAdminBlogs,
+  createBlog,
+  updateBlog,
+  deleteBlog,
+} from "../controllers/blog.controllers.js";
 
 const router = Router();
 
-import {
-  createBlog,
-  getBlogById,
-  getBlogBySlug,
-  getAllBlogs,
-  getListBlogs,
-  updateBlog,
-  deleteBlog,
-  toggleBlogStatus,
-  getPopularBlogs,
-  getSitemapBlogs,
-} from "../controllers/blog.controllers.js";
+const uploadFields = [{ name: "image", maxCount: 1 }];
 
-// Configure multer for multiple file uploads with specific field names
-const blogUpload = upload.fields([
-  { name: "thumbnail", maxCount: 1 },
-  { name: "banner", maxCount: 1 },
-  { name: "gallery", maxCount: 10 }, // Allow up to 10 gallery images
-]);
+// ── Public Routes ──
+router.route("/").get(getPublicBlogs);
+router.route("/detail/:slug").get(getPublicBlogBySlug);
 
-// Public routes
-router.route("/get-all-blogs").get(getAllBlogs);
-router.route("/get-all-sitemap-blogs").get(getSitemapBlogs);
-router.route("/get-list-blogs").get(getListBlogs);
-router.route("/get-popular-blogs").get(getPopularBlogs);
-router.route("/get-blog-by-slug/:slug").get(getBlogBySlug);
-router.route("/get-blog-by-id/:id").get(getBlogById);
+// ── Admin Protected Routes ──
+router
+  .route("/admin/all")
+  .get(verifyJWT, checkPermission("blogs", "view"), getAdminBlogs);
 
-// Protected routes (require authentication)
-router.route("/create-blog").post(verifyJWT, blogUpload, createBlog);
-router.route("/update-blog/:id").put(verifyJWT, blogUpload, updateBlog);
-router.route("/delete-blog/:id").delete(verifyJWT, deleteBlog);
-router.route("/toggle-blog-status/:id").patch(verifyJWT, toggleBlogStatus);
+router
+  .route("/")
+  .post(
+    verifyJWT,
+    checkPermission("blogs", "create"),
+    upload.fields(uploadFields),
+    createBlog
+  );
+
+router
+  .route("/:id")
+  .patch(
+    verifyJWT,
+    checkPermission("blogs", "edit"),
+    upload.fields(uploadFields),
+    updateBlog
+  )
+  .delete(verifyJWT, checkPermission("blogs", "delete"), deleteBlog);
 
 export default router;

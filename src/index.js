@@ -5,8 +5,11 @@ dotenv.config();
 
 const PORT = process.env.PORT || 8000;
 
+import { seedDefaultRoles } from "./db/seedRoles.js";
+
 connectDB()
-  .then(() => {
+  .then(async () => {
+    await seedDefaultRoles();
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port:${PORT}`);
     });

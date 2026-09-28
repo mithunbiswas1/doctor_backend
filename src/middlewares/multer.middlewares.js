@@ -43,10 +43,46 @@ const fileFilter = (req, file, cb) => {
 export const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: 10 * 1024 * 1024,
     fieldSize: 20 * 1024 * 1024,
     fields: 100,
     parts: 150,
   },
   fileFilter: fileFilter,
 });
+
+// Video Storage & Upload for Courses & Lessons
+const videoFolder = path.join(__dirname, "../../public/upload/videos");
+if (!fs.existsSync(videoFolder)) {
+  fs.mkdirSync(videoFolder, { recursive: true });
+}
+
+const videoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, videoFolder);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const filename = `video-${Date.now()}-${uuidv4()}${ext}`;
+    cb(null, filename);
+  },
+});
+
+const videoFilter = (req, file, cb) => {
+  const allowedExts = /mp4|webm|mkv|mov|ogg|avi/;
+  const ext = path.extname(file.originalname).toLowerCase().replace(".", "");
+  if (allowedExts.test(ext) || file.mimetype.startsWith("video/")) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only video files (MP4, WebM, MOV, etc.) are allowed!"));
+  }
+};
+
+export const uploadVideo = multer({
+  storage: videoStorage,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB video file limit
+  },
+  fileFilter: videoFilter,
+});
+

@@ -1,88 +1,80 @@
-// src/models/blog.model.js
+// ael_backend/src/models/blog.model.js
 
 import mongoose, { Schema } from "mongoose";
 
 const blogSchema = new Schema(
   {
-    title: {
+    titleEn: {
       type: String,
-      required: true,
+      required: [true, "English title is required"],
       trim: true,
-      maxlength: 100,
+    },
+    titleBn: {
+      type: String,
+      required: [true, "Bengali title is required"],
+      trim: true,
     },
     slug: {
       type: String,
       required: true,
       unique: true,
-      trim: true,
       lowercase: true,
+      trim: true,
+      index: true,
+    },
+    descriptionEn: {
+      type: String,
+      required: [true, "English summary is required"],
+    },
+    descriptionBn: {
+      type: String,
+      required: [true, "Bengali summary is required"],
+    },
+    contentEn: {
+      type: String,
+      default: "",
+    },
+    contentBn: {
+      type: String,
+      default: "",
     },
     category: {
       type: String,
-      required: true,
+      default: "seminar",
       trim: true,
     },
-    client: {
+    categoryBn: {
       type: String,
-      required: true,
+      default: "সেমিনার",
       trim: true,
     },
-    duration: {
+    image: {
       type: String,
-      required: true,
-      trim: true,
+      default: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?q=80&w=800&auto=format&fit=crop",
     },
-    short_description: {
+    authorEn: {
       type: String,
-      required: true,
-      maxlength: 160,
+      default: "Safe LPG Technical Committee",
     },
-    description: {
+    authorBn: {
       type: String,
-      required: true,
+      default: "সেইফ এলপিজি টেকনিক্যাল কমিটি",
     },
-    technologies: {
-      type: [String],
-      required: true,
-      default: [],
-    },
-    thumbnail: {
+    readTimeEn: {
       type: String,
-      default: "default-thumbnail.png",
+      default: "5 min read",
     },
-    banner: {
+    readTimeBn: {
       type: String,
-      default: "default-banner.png",
+      default: "৫ মিনিট পাঠ",
     },
-    gallery: {
-      type: [String],
-      default: [],
-    },
-    meta_title: {
-      type: String,
-      trim: true,
-      maxlength: 60,
-    },
-    meta_description: {
-      type: String,
-      trim: true,
-      maxlength: 160,
-    },
-    seo_keyword: {
-      type: String,
-      trim: true,
-    },
-    createBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: [true, "User is required"],
-    },
-    post_date: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-    is_active: {
+    tags: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    isPublished: {
       type: Boolean,
       default: true,
     },
@@ -90,64 +82,14 @@ const blogSchema = new Schema(
       type: Number,
       default: 0,
     },
-    published_at: {
-      type: Date,
-      default: Date.now,
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
     },
   },
   {
     timestamps: true,
   }
 );
-
-// Pre-save middleware to generate slug if not provided
-blogSchema.pre("save", async function (next) {
-  if (!this.slug && this.title) {
-    this.slug = this.title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  }
-
-  // Generate meta fields if not provided
-  if (!this.meta_title) {
-    this.meta_title = this.title;
-  }
-  if (!this.meta_description) {
-    this.meta_description = this.short_description;
-  }
-
-  next();
-});
-
-// Indexes for better performance
-blogSchema.index({ title: 1 });
-blogSchema.index({ category: 1 });
-blogSchema.index({ is_active: 1 });
-blogSchema.index({ published_at: -1 });
-blogSchema.index({ technologies: 1 });
-
-// Static method to get active blogs
-blogSchema.statics.getActiveBlogs = function () {
-  return this.find({ is_active: true }).sort({ published_at: -1 });
-};
-
-// Instance method to deactivate blog
-blogSchema.methods.deactivate = function () {
-  this.is_active = false;
-  return this.save();
-};
-
-// Instance method to activate blog
-blogSchema.methods.activate = function () {
-  this.is_active = true;
-  return this.save();
-};
-
-// Method to increment views
-blogSchema.methods.incrementViews = function () {
-  this.views += 1;
-  return this.save();
-};
 
 export const Blog = mongoose.model("Blog", blogSchema);

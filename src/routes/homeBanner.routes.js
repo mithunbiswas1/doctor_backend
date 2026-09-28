@@ -1,37 +1,27 @@
-// routes/homeBanner.routes.js
-
+// ael_backend/src/routes/homeBanner.routes.js
 import { Router } from "express";
-import { upload } from "../middlewares/multer.middlewares.js";
 import { verifyJWT } from "../middlewares/auth.middlewares.js";
+import { upload } from "../middlewares/multer.middlewares.js";
+import {
+  getHomeBanner,
+  updateHomeBanner,
+  uploadBannerSlides,
+} from "../controllers/homeBanner.controllers.js";
 
 const router = Router();
 
-import {
-  createOrUpdateHomeBanner,
-  getHomeBanner,
-  getActiveHomeBanner,
-  updateHomeBanner,
-  toggleHomeBannerStatus,
-  deleteHomeBanner,
-} from "../controllers/homeBanner.controller.js";
+// Public: Get home banner data
+router.route("/").get(getHomeBanner);
 
-// Configure multer for single file upload
-const bannerUpload = upload.single("banner_image");
+// Admin: Update home banner details & slides
+router
+  .route("/")
+  .put(verifyJWT, updateHomeBanner)
+  .patch(verifyJWT, updateHomeBanner);
 
-// Public routes
-router.route("/get-active-banner").get(getActiveHomeBanner);
-router.route("/get-home-banner").get(getHomeBanner);
-
-// Protected routes (require authentication)
+// Admin: Upload multiple slide images (Drag & Drop)
 router
-  .route("/create-or-update-home-banner")
-  .post(verifyJWT, bannerUpload, createOrUpdateHomeBanner);
-router
-  .route("/update-home-banner")
-  .put(verifyJWT, bannerUpload, updateHomeBanner);
-router
-  .route("/toggle-home-banner-status")
-  .patch(verifyJWT, toggleHomeBannerStatus);
-router.route("/delete-home-banner").delete(verifyJWT, deleteHomeBanner);
+  .route("/upload-slides")
+  .post(verifyJWT, upload.array("images", 10), uploadBannerSlides);
 
 export default router;

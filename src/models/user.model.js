@@ -35,8 +35,15 @@ const userSchema = new Schema(
     },
     role: {
       type: String,
-      enum: ["admin", "customer"],
-      default: "customer",
+      enum: [
+        "super_admin",
+        "course_admin",
+        "subscriber",
+        "general_user",
+        "admin",
+        "customer",
+      ],
+      default: "general_user",
     },
     bio: {
       type: String,
@@ -77,6 +84,15 @@ const userSchema = new Schema(
     refreshToken: {
       type: String,
     },
+    enrolledCourses: [
+      {
+        courseId: { type: String, required: true },
+        enrolledAt: { type: Date, default: Date.now },
+        progressPercent: { type: Number, default: 0 },
+        completedLessons: [{ type: String }],
+        status: { type: String, enum: ["active", "completed"], default: "active" },
+      },
+    ],
   },
   {
     timestamps: true,
