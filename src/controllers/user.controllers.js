@@ -475,6 +475,20 @@ const getPrescribedUsersList = asyncHandler(async (req, res) => {
   );
 });
 
+// Admin: Get user by ID (including permissions and role)
+const getUserByIdForAdmin = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  const user = await User.findById(userId).select("-password -refreshToken");
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "User fetched successfully"));
+});
+
 // Admin: Update user
 const updateUserByAdmin = asyncHandler(async (req, res) => {
   const { userId } = req.params;
@@ -493,6 +507,7 @@ const updateUserByAdmin = asyncHandler(async (req, res) => {
     state,
     country,
     postal_code,
+    permissions,
   } = req.body;
 
   const user = await User.findById(userId);
@@ -521,6 +536,15 @@ const updateUserByAdmin = asyncHandler(async (req, res) => {
     }
   }
 
+  let parsedPermissions = permissions;
+  if (typeof permissions === "string") {
+    try {
+      parsedPermissions = JSON.parse(permissions);
+    } catch (e) {
+      parsedPermissions = [];
+    }
+  }
+
   const updateData = {
     ...(userName && { userName }),
     ...(fullName && { fullName }),
@@ -536,6 +560,7 @@ const updateUserByAdmin = asyncHandler(async (req, res) => {
     ...(state && { state }),
     ...(country && { country }),
     ...(postal_code && { postal_code }),
+    ...(parsedPermissions !== undefined && { permissions: parsedPermissions }),
   };
 
   const updatedUser = await User.findByIdAndUpdate(
@@ -600,6 +625,7 @@ export {
   updatePassword,
   getListUsers,
   getPrescribedUsersList,
+  getUserByIdForAdmin,
   updateUserByAdmin,
   deleteUserByAdmin,
   getUserByUsername,

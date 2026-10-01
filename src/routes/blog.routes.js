@@ -8,14 +8,23 @@ import {
   getPublicBlogs,
   getPublicBlogBySlug,
   getAdminBlogs,
+  getBlogById,
   createBlog,
   updateBlog,
   deleteBlog,
+  getBlogCategories,
+  createBlogCategory,
 } from "../controllers/blog.controllers.js";
 
 const router = Router();
 
 const uploadFields = [{ name: "image", maxCount: 1 }];
+
+// ── Categories Routes (Must be before /:id) ──
+router
+  .route("/categories")
+  .get(getBlogCategories)
+  .post(verifyJWT, checkPermission("blogs", "create"), createBlogCategory);
 
 // ── Public Routes ──
 router.route("/").get(getPublicBlogs);
@@ -37,6 +46,7 @@ router
 
 router
   .route("/:id")
+  .get(getBlogById)
   .patch(
     verifyJWT,
     checkPermission("blogs", "edit"),

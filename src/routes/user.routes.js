@@ -11,6 +11,7 @@ import {
   updateUserProfile,
   updatePassword,
   getListUsers,
+  getUserByIdForAdmin,
   updateUserByAdmin,
   deleteUserByAdmin,
   getPrescribedUsersList,
@@ -36,6 +37,7 @@ router.route("/update-password").patch(verifyJWT, updatePassword);
 
 // Admin routes
 router.route("/list-users").get(verifyJWT, getListUsers);
+router.route("/admin-user/:userId").get(verifyJWT, getUserByIdForAdmin);
 router.route("/prescribed-list-users").get(verifyJWT, getPrescribedUsersList);
 router
   .route("/update-user/:userId")

@@ -118,8 +118,8 @@ export const getMyPermissions = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Not authenticated");
   }
 
-  // Super Admin has all permissions
-  if (user.role === "super_admin" || user.role === "admin") {
+  // Super Admin has master permissions
+  if (user.role === "super_admin") {
     return res.status(200).json(
       new ApiResponse(
         200,
@@ -127,18 +127,40 @@ export const getMyPermissions = asyncHandler(async (req, res) => {
           role: user.role,
           isSuperAdmin: true,
           permissions: [
-            { module: "courses", actions: ["view", "create", "edit", "delete"] },
-            { module: "quizzes", actions: ["view", "create", "edit", "delete"] },
-            { module: "certificates", actions: ["view", "create", "edit", "delete"] },
-            { module: "blogs", actions: ["view", "create", "edit", "delete"] },
-            { module: "market_updates", actions: ["view", "create", "edit", "delete"] },
-            { module: "roles", actions: ["view", "create", "edit", "delete"] },
-            { module: "users", actions: ["view", "create", "edit", "delete"] },
-            { module: "analytics", actions: ["view"] },
-            { module: "settings", actions: ["view", "edit"] },
+            { module: "courses", page: "/admin/courses", actions: ["view", "create", "edit", "delete"] },
+            { module: "quizzes", page: "/admin/quizzes", actions: ["view", "create", "edit", "delete"] },
+            { module: "certificates", page: "/admin/certificates", actions: ["view", "create", "edit", "delete"] },
+            { module: "blogs", page: "/admin/blogs", actions: ["view", "create", "edit", "delete"] },
+            { module: "market_updates", page: "/admin/pages/market-updates", actions: ["view", "create", "edit", "delete"] },
+            { module: "users", page: "/admin/users", actions: ["view", "create", "edit", "delete"] },
+            { module: "messages", page: "/admin/messages", actions: ["view", "create", "edit", "delete"] },
+            { module: "comments", page: "/admin/comments", actions: ["view", "create", "edit", "delete"] },
+            { module: "advertisements", page: "/admin/advertisements", actions: ["view", "create", "edit", "delete"] },
+            { module: "archive", page: "/admin/archive", actions: ["view", "create", "edit", "delete"] },
+            { module: "sms", page: "/admin/sms", actions: ["view", "create", "edit", "delete"] },
+            { module: "email", page: "/admin/email", actions: ["view", "create", "edit", "delete"] },
+            { module: "subscriptions", page: "/admin/subscriptions", actions: ["view", "create", "edit", "delete"] },
+            { module: "database", page: "/admin/database", actions: ["view", "create", "edit", "delete"] },
+            { module: "analytics", page: "/admin", actions: ["view"] },
+            { module: "settings", page: "/admin", actions: ["view", "edit"] },
           ],
         },
         "User permissions resolved (Master Super Admin)"
+      )
+    );
+  }
+
+  // Check if user has explicit custom permissions assigned
+  if (user.permissions && user.permissions.length > 0) {
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          role: user.role,
+          isSuperAdmin: false,
+          permissions: user.permissions,
+        },
+        "User specific page permissions resolved"
       )
     );
   }

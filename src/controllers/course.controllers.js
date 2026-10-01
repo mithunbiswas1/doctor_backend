@@ -68,25 +68,32 @@ export const getCourseById = asyncHandler(async (req, res) => {
  * Admin: Create new course
  */
 export const createCourse = asyncHandler(async (req, res) => {
-  const { title, titleBn, description, descriptionBn, price, category } = req.body;
+  const { title, titleBn, description, descriptionBn } = req.body;
 
-  if (!title || !titleBn) {
-    throw new ApiError(400, "English and Bengali course titles are required");
+  const engTitle = title || titleBn;
+  const bnTitle = titleBn || title;
+
+  if (!engTitle) {
+    throw new ApiError(400, "Course title is required");
   }
 
-  const generatedSlug = (req.body.slug || title)
+  const generatedSlug = (req.body.slug || engTitle)
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-");
+    .replace(/\s+/g, "-") + "-" + Date.now().toString().slice(-4);
 
   const courseCount = await Course.countDocuments();
   const nextId = (courseCount + 1).toString();
 
   const course = await Course.create({
     ...req.body,
+    title: engTitle,
+    titleBn: bnTitle,
+    description: description || descriptionBn || "",
+    descriptionBn: descriptionBn || description || "",
     courseId: req.body.courseId || nextId,
-    slug: generatedSlug,
+    slug: req.body.slug || generatedSlug,
     createdBy: req.user?._id,
   });
 
@@ -247,6 +254,108 @@ export const uploadCourseVideo = asyncHandler(async (req, res) => {
         videoUrl,
       },
       "Course video uploaded successfully"
+    )
+  );
+});
+
+/**
+ * Admin: Upload image file directly for course thumbnail
+ */
+export const uploadCourseImage = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw new ApiError(400, "No image file provided");
+  }
+
+  const imageUrl = `/public/upload/${req.file.filename}`;
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        size: req.file.size,
+        imageUrl,
+      },
+      "Course image uploaded successfully"
+    )
+  );
+});
+
+/**
+ * Subscriber: Update lesson viewing progress (10-second heartbeat & completion)
+ */
+export const updateCourseProgress = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { lessonId, watchedSeconds = 0, isCompleted = false } = req.body;
+
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  const course = await Course.findOne({
+    $or: [{ courseId: id }, { slug: id.toLowerCase() }, { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }],
+  });
+
+  if (!course) {
+    throw new ApiError(404, "Course not found");
+  }
+
+  if (!user.enrolledCourses) {
+    user.enrolledCourses = [];
+  }
+
+  let enrollment = user.enrolledCourses.find(
+    (e) => e.courseId === course.courseId || e.courseId === course._id.toString()
+  );
+
+  if (!enrollment) {
+    enrollment = {
+      courseId: course.courseId,
+      enrolledAt: new Date(),
+      progressPercent: 0,
+      completedLessons: [],
+      status: "active",
+    };
+    user.enrolledCourses.push(enrollment);
+  }
+
+  const totalLessons =
+    course.curriculum?.reduce(
+      (acc, mod) => acc + (mod.lessons?.length || 0),
+      0
+    ) || 1;
+
+  if (lessonId && (isCompleted || watchedSeconds >= 10)) {
+    const sLessonId = String(lessonId);
+    if (!enrollment.completedLessons.includes(sLessonId)) {
+      enrollment.completedLessons.push(sLessonId);
+    }
+  }
+
+  const completedCount = enrollment.completedLessons.length;
+  enrollment.progressPercent = Math.min(
+    100,
+    Math.round((completedCount / totalLessons) * 100)
+  );
+
+  if (enrollment.progressPercent >= 100) {
+    enrollment.status = "completed";
+  }
+
+  await user.save();
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        courseId: course.courseId,
+        progressPercent: enrollment.progressPercent,
+        completedLessons: enrollment.completedLessons,
+        isCompleted: enrollment.progressPercent >= 100,
+      },
+      "Course progress updated successfully"
     )
   );
 });

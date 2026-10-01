@@ -14,6 +14,13 @@ import certificateRouter from "./routes/certificate.routes.js";
 import pageRouter from "./routes/page.routes.js";
 import contactRouter from "./routes/contact.routes.js";
 import homeBannerRouter from "./routes/homeBanner.routes.js";
+import commentRouter from "./routes/comment.routes.js";
+import advertisementRouter from "./routes/advertisement.routes.js";
+import archiveRouter from "./routes/archive.routes.js";
+import campaignRouter from "./routes/campaign.routes.js";
+import subscriptionRouter from "./routes/subscription.routes.js";
+import directoryRouter from "./routes/directory.routes.js";
+import marketUpdateRouter from "./routes/marketUpdate.routes.js";
 
 // __dirname setup for ES Module
 const __filename = fileURLToPath(import.meta.url);
@@ -48,6 +55,7 @@ app.get("/", (req, res) => {
 
 // Routes
 app.use("/api/v1", userRouter);
+app.use("/api/v1/user", userRouter);
 app.use("/api/v1", aboutRoutes);
 app.use("/api/v1/roles", roleRouter);
 app.use("/api/v1/blogs", blogRouter);
@@ -57,5 +65,12 @@ app.use("/api/v1/certificates", certificateRouter);
 app.use("/api/v1/pages", pageRouter);
 app.use("/api/v1/contact", contactRouter);
 app.use("/api/v1/home-banner", homeBannerRouter);
+app.use("/api/v1/comments", commentRouter);
+app.use("/api/v1/advertisements", advertisementRouter);
+app.use("/api/v1/archives", archiveRouter);
+app.use("/api/v1/campaigns", campaignRouter);
+app.use("/api/v1/subscriptions", subscriptionRouter);
+app.use("/api/v1/directory", directoryRouter);
+app.use("/api/v1/market-updates", marketUpdateRouter);
 
 export { app };

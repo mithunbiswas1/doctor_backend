@@ -13,7 +13,18 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 export const getQuizByCourseId = asyncHandler(async (req, res) => {
   const { courseId } = req.params;
 
-  const quiz = await Quiz.findOne({ courseId });
+  const course = await Course.findOne({
+    $or: [
+      { courseId },
+      { slug: courseId.toLowerCase() },
+      { _id: courseId.match(/^[0-9a-fA-F]{24}$/) ? courseId : null },
+    ],
+  });
+
+  const resolvedCourseId = course ? course.courseId : courseId;
+  const quiz = await Quiz.findOne({
+    $or: [{ courseId: resolvedCourseId }, { courseId }],
+  });
 
   if (!quiz) {
     throw new ApiError(404, "Quiz not found for this course");
@@ -30,12 +41,21 @@ export const getQuizByCourseId = asyncHandler(async (req, res) => {
 export const submitQuiz = asyncHandler(async (req, res) => {
   const { courseId, selectedAnswers, studentName, studentNameBn } = req.body;
 
-  const quiz = await Quiz.findOne({ courseId });
+  const course = await Course.findOne({
+    $or: [
+      { courseId },
+      { slug: courseId?.toLowerCase() },
+      { _id: courseId?.match(/^[0-9a-fA-F]{24}$/) ? courseId : null },
+    ],
+  });
+
+  const resolvedCourseId = course ? course.courseId : courseId;
+  const quiz = await Quiz.findOne({
+    $or: [{ courseId: resolvedCourseId }, { courseId }],
+  });
   if (!quiz) {
     throw new ApiError(404, "Quiz not found");
   }
-
-  const course = await Course.findOne({ courseId });
 
   let correctCount = 0;
   quiz.questions.forEach((q, idx) => {

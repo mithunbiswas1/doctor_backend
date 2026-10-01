@@ -1,6 +1,7 @@
 // ael_backend/src/controllers/blog.controllers.js
 
 import { Blog } from "../models/blog.model.js";
+import { BlogCategory } from "../models/blogCategory.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -139,6 +140,28 @@ export const getAdminBlogs = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Admin: Get single blog by ID or Slug (including unpublished)
+ */
+export const getBlogById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const blog = await Blog.findOne({
+    $or: [
+      { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null },
+      { slug: id.toLowerCase() },
+    ],
+  }).populate("createdBy", "fullName email role");
+
+  if (!blog) {
+    throw new ApiError(404, "Blog post not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, blog, "Blog post fetched successfully"));
+});
+
+/**
  * Admin: Create new blog post (Bilingual)
  */
 export const createBlog = asyncHandler(async (req, res) => {
@@ -216,6 +239,13 @@ export const createBlog = asyncHandler(async (req, res) => {
     image: imageUrl || "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?q=80&w=800&auto=format&fit=crop",
     isPublished: isPublished === "true" || isPublished === true,
     createdBy: req.user?._id,
+    metaTitle: req.body.metaTitle || "",
+    metaTitleBn: req.body.metaTitleBn || "",
+    metaDescription: req.body.metaDescription || "",
+    metaDescriptionBn: req.body.metaDescriptionBn || "",
+    metaKeywords: req.body.metaKeywords || "",
+    canonicalUrl: req.body.canonicalUrl || "",
+    ogImage: req.body.ogImage || imageUrl || "",
   });
 
   return res
@@ -277,3 +307,74 @@ export const deleteBlog = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, null, "Blog post deleted successfully"));
 });
+
+const DEFAULT_BLOG_CATEGORIES = [
+  { slug: "seminar", nameEn: "Seminar", nameBn: "সেমিনার" },
+  {
+    slug: "programs_of_association",
+    nameEn: "Programs of Association",
+    nameBn: "অ্যাসোসিয়েশনের কার্যক্রম",
+  },
+  {
+    slug: "safety_guidelines",
+    nameEn: "Safety Guidelines",
+    nameBn: "নিরাপত্তা নির্দেশিকা",
+  },
+];
+
+/**
+ * Public & Admin: Get all blog categories
+ */
+export const getBlogCategories = asyncHandler(async (req, res) => {
+  let categories = await BlogCategory.find().sort({ createdAt: 1 });
+
+  // Auto-seed default categories if collection is empty
+  if (categories.length === 0) {
+    try {
+      await BlogCategory.insertMany(DEFAULT_BLOG_CATEGORIES);
+      categories = await BlogCategory.find().sort({ createdAt: 1 });
+    } catch {
+      // If concurrent insert occurred, fetch again
+      categories = await BlogCategory.find().sort({ createdAt: 1 });
+    }
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, categories, "Blog categories retrieved successfully"));
+});
+
+/**
+ * Admin: Create a new blog category
+ */
+export const createBlogCategory = asyncHandler(async (req, res) => {
+  const { nameEn, nameBn, slug, description } = req.body;
+
+  if (!nameEn?.trim() || !nameBn?.trim()) {
+    throw new ApiError(400, "Both English and Bengali category names are required");
+  }
+
+  let finalSlug = (slug || nameEn)
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "_");
+
+  const existing = await BlogCategory.findOne({ slug: finalSlug });
+  if (existing) {
+    finalSlug = `${finalSlug}_${Date.now().toString().slice(-4)}`;
+  }
+
+  const category = await BlogCategory.create({
+    nameEn: nameEn.trim(),
+    nameBn: nameBn.trim(),
+    slug: finalSlug,
+    description: description || "",
+    createdBy: req.user?._id,
+  });
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, category, "Blog category created successfully"));
+});
+

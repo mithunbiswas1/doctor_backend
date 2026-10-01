@@ -3,19 +3,37 @@ import mongoose, { Schema } from "mongoose";
 
 const lessonSchema = new Schema({
   title: { type: String, required: true },
-  titleBn: { type: String, required: true },
+  titleBn: { type: String, default: "" },
   duration: { type: String, default: "10 mins" },
   durationBn: { type: String, default: "১০ মিনিট" },
-  videoUrl: { type: String, default: "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ" },
+  videoUrl: { type: String, default: "" },
   notes: { type: String, default: "" },
   notesBn: { type: String, default: "" },
   freePreview: { type: Boolean, default: false },
 });
 
+const quizQuestionSchema = new Schema({
+  question: { type: String, required: true },
+  questionBn: { type: String, default: "" },
+  options: [{ type: String, required: true }],
+  optionsBn: [{ type: String, default: "" }],
+  correctAnswer: { type: Number, required: true, default: 0 },
+  explanation: { type: String, default: "" },
+  explanationBn: { type: String, default: "" },
+});
+
 const curriculumModuleSchema = new Schema({
   moduleTitle: { type: String, required: true },
-  moduleTitleBn: { type: String, required: true },
+  moduleTitleBn: { type: String, default: "" },
+  isFree: { type: Boolean, default: false }, // Premium course but free module flag
   lessons: [lessonSchema],
+  quiz: {
+    title: { type: String, default: "" },
+    titleBn: { type: String, default: "" },
+    durationMinutes: { type: Number, default: 10 },
+    passingScore: { type: Number, default: 70 },
+    questions: [quizQuestionSchema],
+  },
 });
 
 const courseSchema = new Schema(

@@ -12,15 +12,26 @@ import {
   getMyEnrolledCourses,
   enrollInCourse,
   uploadCourseVideo,
+  uploadCourseImage,
+  updateCourseProgress,
 } from "../controllers/course.controllers.js";
-import { uploadVideo } from "../middlewares/multer.middlewares.js";
+import { upload, uploadVideo } from "../middlewares/multer.middlewares.js";
 
 const router = Router();
 
 // Public routes
 router.route("/").get(getCourses);
 
-// Video Upload Route (Admin only)
+// Media Upload Routes (Admin only)
+router
+  .route("/upload-image")
+  .post(
+    verifyJWT,
+    checkPermission("courses", "create"),
+    upload.single("image"),
+    uploadCourseImage
+  );
+
 router
   .route("/upload-video")
   .post(
@@ -33,6 +44,7 @@ router
 // Subscriber / Learner authenticated routes
 router.route("/subscriber/my-learning").get(verifyJWT, getMyEnrolledCourses);
 router.route("/subscriber/enroll").post(verifyJWT, enrollInCourse);
+router.route("/:id/progress").post(verifyJWT, updateCourseProgress);
 
 // Single course details (after explicit static routes)
 router.route("/:id").get(getCourseById);

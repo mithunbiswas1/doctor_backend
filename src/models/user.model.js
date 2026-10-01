@@ -37,14 +37,36 @@ const userSchema = new Schema(
       type: String,
       enum: [
         "super_admin",
+        "admin",
         "course_admin",
+        "editor",
+        "moderator",
+        "author",
         "subscriber",
         "general_user",
-        "admin",
         "customer",
       ],
       default: "general_user",
     },
+    permissions: [
+      {
+        page: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        module: {
+          type: String,
+          trim: true,
+        },
+        actions: [
+          {
+            type: String,
+            enum: ["view", "create", "edit", "delete"],
+          },
+        ],
+      },
+    ],
     bio: {
       type: String,
     },

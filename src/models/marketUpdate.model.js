@@ -1,8 +1,8 @@
-// ael_backend/src/models/blog.model.js
+// ael_backend/src/models/marketUpdate.model.js
 
 import mongoose, { Schema } from "mongoose";
 
-const blogSchema = new Schema(
+const marketUpdateSchema = new Schema(
   {
     titleEn: {
       type: String,
@@ -22,13 +22,27 @@ const blogSchema = new Schema(
       trim: true,
       index: true,
     },
-    descriptionEn: {
+    category: {
+      type: String,
+      required: [true, "Category is required"],
+      enum: ["incidents", "berc", "global"],
+      default: "incidents",
+      index: true,
+    },
+    categoryBn: {
+      type: String,
+      default: "দুর্ঘটনা ও তদন্ত প্রতিবেদন",
+      trim: true,
+    },
+    summaryEn: {
       type: String,
       required: [true, "English summary is required"],
+      trim: true,
     },
-    descriptionBn: {
+    summaryBn: {
       type: String,
       required: [true, "Bengali summary is required"],
+      trim: true,
     },
     contentEn: {
       type: String,
@@ -38,35 +52,47 @@ const blogSchema = new Schema(
       type: String,
       default: "",
     },
-    category: {
-      type: String,
-      default: "seminar",
-      trim: true,
-    },
-    categoryBn: {
-      type: String,
-      default: "সেমিনার",
-      trim: true,
-    },
     image: {
       type: String,
-      default: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?q=80&w=800&auto=format&fit=crop",
+      default:
+        "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?q=80&w=800&auto=format&fit=crop",
+    },
+    pdfUrl: {
+      type: String,
+      default: "",
+    },
+    pdfOriginalName: {
+      type: String,
+      default: "",
+    },
+    pdfSize: {
+      type: Number,
+      default: 0,
     },
     authorEn: {
       type: String,
-      default: "Safe LPG Technical Committee",
+      default: "Safe LPG Research & Intelligence",
     },
     authorBn: {
       type: String,
-      default: "সেইফ এলপিজি টেকনিক্যাল কমিটি",
+      default: "সেইফ এলপিজি রিসার্চ অ্যান্ড ইন্টেলিজেন্স",
     },
-    readTimeEn: {
-      type: String,
-      default: "5 min read",
+    publishDate: {
+      type: Date,
+      default: Date.now,
     },
-    readTimeBn: {
-      type: String,
-      default: "৫ মিনিট পাঠ",
+    isPublished: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+    isFeatured: {
+      type: Boolean,
+      default: false,
+    },
+    views: {
+      type: Number,
+      default: 0,
     },
     tags: [
       {
@@ -74,18 +100,6 @@ const blogSchema = new Schema(
         trim: true,
       },
     ],
-    isPublished: {
-      type: Boolean,
-      default: true,
-    },
-    views: {
-      type: Number,
-      default: 0,
-    },
-    createdBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-    },
     metaTitle: {
       type: String,
       default: "",
@@ -111,15 +125,9 @@ const blogSchema = new Schema(
       default: "",
       trim: true,
     },
-    canonicalUrl: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-    ogImage: {
-      type: String,
-      default: "",
-      trim: true,
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
     },
   },
   {
@@ -127,4 +135,12 @@ const blogSchema = new Schema(
   }
 );
 
-export const Blog = mongoose.model("Blog", blogSchema);
+// Search indexes
+marketUpdateSchema.index({
+  titleEn: "text",
+  titleBn: "text",
+  summaryEn: "text",
+  summaryBn: "text",
+});
+
+export const MarketUpdate = mongoose.model("MarketUpdate", marketUpdateSchema);
