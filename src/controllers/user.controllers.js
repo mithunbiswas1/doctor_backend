@@ -90,7 +90,7 @@ const registerUser = asyncHandler(async (req, res) => {
     fullName,
     phone,
     password,
-    role: role || "customer",
+    role: "user",
     ...(cleanedEmail && { email }),
     ...(bio && { bio }),
     ...(profileImage && { image: profileImage }),
@@ -128,7 +128,11 @@ const login = asyncHandler(async (req, res) => {
   if (phone) {
     user = await User.findOne({ phone });
   } else if (email) {
-    user = await User.findOne({ email });
+    const cleanEmail = email.trim().toLowerCase();
+    const aliasEmail = cleanEmail.replace("instrructor", "instructor");
+    user = await User.findOne({
+      $or: [{ email: cleanEmail }, { email: aliasEmail }],
+    });
   } else if (userName) {
     user = await User.findOne({ userName });
   }
@@ -434,7 +438,7 @@ const getPrescribedUsersList = asyncHandler(async (req, res) => {
 
   const query = {
     is_prescribed: true,
-    role: "customer",
+    role: { $in: ["user", "general_user"] },
   };
 
   if (search) {

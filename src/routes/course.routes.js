@@ -5,6 +5,8 @@ import { verifyJWT } from "../middlewares/auth.middlewares.js";
 import { checkPermission } from "../middlewares/permission.middlewares.js";
 import {
   getCourses,
+  getAdminCourses,
+  getCourseEnrollmentHistory,
   getCourseById,
   createCourse,
   updateCourse,
@@ -13,6 +15,7 @@ import {
   enrollInCourse,
   uploadCourseVideo,
   uploadCourseImage,
+  uploadCoursePdf,
   updateCourseProgress,
 } from "../controllers/course.controllers.js";
 import { upload, uploadVideo } from "../middlewares/multer.middlewares.js";
@@ -21,6 +24,16 @@ const router = Router();
 
 // Public routes
 router.route("/").get(getCourses);
+
+// Admin / Instructor courses management
+router
+  .route("/admin-list")
+  .get(verifyJWT, checkPermission("courses", "view"), getAdminCourses);
+
+// Instructor / Admin enrollment and sales history
+router
+  .route("/instructor/enrollments")
+  .get(verifyJWT, checkPermission("courses", "view"), getCourseEnrollmentHistory);
 
 // Media Upload Routes (Admin only)
 router
@@ -39,6 +52,15 @@ router
     checkPermission("courses", "create"),
     uploadVideo.single("video"),
     uploadCourseVideo
+  );
+
+router
+  .route("/upload-pdf")
+  .post(
+    verifyJWT,
+    checkPermission("courses", "create"),
+    upload.single("pdf"),
+    uploadCoursePdf
   );
 
 // Subscriber / Learner authenticated routes

@@ -21,8 +21,26 @@ export const DEFAULT_ROLES = [
     ],
   },
   {
-    name: "course_admin",
-    label: "Course Administrator",
+    name: "admin",
+    label: "Administrator",
+    description: "Platform administrator with operations, content, and user management authority",
+    isSystem: true,
+    permissions: [
+      { module: "courses", actions: ["view", "create", "edit", "delete"] },
+      { module: "quizzes", actions: ["view", "create", "edit", "delete"] },
+      { module: "certificates", actions: ["view", "create", "edit", "delete"] },
+      { module: "blogs", actions: ["view", "create", "edit", "delete"] },
+      { module: "market_updates", actions: ["view", "create", "edit", "delete"] },
+      { module: "users", actions: ["view", "create", "edit"] },
+      { module: "messages", actions: ["view", "create", "edit", "delete"] },
+      { module: "comments", actions: ["view", "create", "edit", "delete"] },
+      { module: "subscriptions", actions: ["view", "create", "edit"] },
+      { module: "analytics", actions: ["view"] },
+    ],
+  },
+  {
+    name: "instructor",
+    label: "Instructor",
     description: "Manages courses, curriculum modules, quizzes, and certificates",
     isSystem: true,
     permissions: [
@@ -35,8 +53,8 @@ export const DEFAULT_ROLES = [
   },
   {
     name: "subscriber",
-    label: "Enrolled Subscriber",
-    description: "Authenticated enrolled student with access to interactive classroom and quizzes",
+    label: "Subscriber",
+    description: "Premium subscriber with access to all paid masterclasses, videos, certificates, and comments",
     isSystem: true,
     permissions: [
       { module: "courses", actions: ["view"] },
@@ -44,18 +62,20 @@ export const DEFAULT_ROLES = [
       { module: "certificates", actions: ["view"] },
       { module: "blogs", actions: ["view"] },
       { module: "market_updates", actions: ["view"] },
+      { module: "comments", actions: ["view", "create"] },
     ],
   },
   {
-    name: "general_user",
-    label: "General User",
-    description: "Public registered member with standard browsing access",
+    name: "user",
+    label: "User",
+    description: "Registered member who can enroll in courses, browse content, and post comments",
     isSystem: true,
     permissions: [
       { module: "courses", actions: ["view"] },
       { module: "blogs", actions: ["view"] },
       { module: "market_updates", actions: ["view"] },
       { module: "certificates", actions: ["view"] },
+      { module: "comments", actions: ["view", "create"] },
     ],
   },
 ];

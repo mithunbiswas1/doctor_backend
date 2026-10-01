@@ -38,15 +38,11 @@ const userSchema = new Schema(
       enum: [
         "super_admin",
         "admin",
-        "course_admin",
-        "editor",
-        "moderator",
-        "author",
+        "instructor",
         "subscriber",
-        "general_user",
-        "customer",
+        "user",
       ],
-      default: "general_user",
+      default: "user",
     },
     permissions: [
       {
@@ -115,6 +111,33 @@ const userSchema = new Schema(
         status: { type: String, enum: ["active", "completed"], default: "active" },
       },
     ],
+    subscription: {
+      planKey: {
+        type: String,
+        enum: [
+          "free",
+          "monthly",
+          "half_yearly",
+          "yearly",
+          "professional",
+          "course_single",
+          "consumer",
+          "dealer",
+          "enterprise",
+          null,
+        ],
+        default: "free",
+      },
+      planName: { type: String, default: "Free / Newsletter" },
+      status: {
+        type: String,
+        enum: ["active", "expired", "revoked", "inactive"],
+        default: "inactive",
+      },
+      startDate: { type: Date, default: null },
+      expiresAt: { type: Date, default: null },
+      transactionId: { type: String, default: null },
+    },
   },
   {
     timestamps: true,

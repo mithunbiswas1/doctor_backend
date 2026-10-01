@@ -432,11 +432,11 @@ async function seedDatabase() {
       password: "password123",
     },
     {
-      userName: "courseadmin",
-      fullName: "AEL Course Administrator",
-      email: "courseadmin@ael.com",
+      userName: "instructor",
+      fullName: "AEL Course Instructor",
+      email: "instructor@ael.com",
       phone: "01700000002",
-      role: "course_admin",
+      role: "instructor",
       password: "password123",
     },
     {
@@ -448,11 +448,11 @@ async function seedDatabase() {
       password: "password123",
     },
     {
-      userName: "generaluser",
-      fullName: "AEL Citizen User",
+      userName: "user",
+      fullName: "AEL Registered User",
       email: "user@ael.com",
       phone: "01700000004",
-      role: "general_user",
+      role: "user",
       password: "password123",
     },
   ];

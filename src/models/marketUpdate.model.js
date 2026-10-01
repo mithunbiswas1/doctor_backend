@@ -86,6 +86,12 @@ const marketUpdateSchema = new Schema(
       default: true,
       index: true,
     },
+    accessType: {
+      type: String,
+      enum: ["free", "paid"],
+      default: "free",
+      index: true,
+    },
     isFeatured: {
       type: Boolean,
       default: false,

@@ -18,7 +18,30 @@ export const checkPermission = (moduleName, action) => {
     }
 
     // Super Admin has master authority across all modules
-    if (user.role === "super_admin" || user.role === "admin") {
+    if (user.role === "super_admin") {
+      return next();
+    }
+
+    // If user has specific granular permissions assigned (e.g. Admin with custom page control)
+    if (Array.isArray(user.permissions) && user.permissions.length > 0) {
+      const userPerm = user.permissions.find(
+        (p) =>
+          p.module === moduleName ||
+          (p.page && (p.page === `/admin/${moduleName}` || p.page.includes(moduleName)))
+      );
+
+      if (userPerm && userPerm.actions && userPerm.actions.includes(action)) {
+        return next();
+      }
+
+      throw new ApiError(
+        403,
+        `Permission denied: Insufficient privileges to perform '${action}' on '${moduleName}'`
+      );
+    }
+
+    // If admin without specific custom permission restrictions, allow standard admin access
+    if (user.role === "admin") {
       return next();
     }
 

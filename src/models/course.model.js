@@ -7,6 +7,8 @@ const lessonSchema = new Schema({
   duration: { type: String, default: "10 mins" },
   durationBn: { type: String, default: "১০ মিনিট" },
   videoUrl: { type: String, default: "" },
+  pdfUrl: { type: String, default: "" },
+  pdfOriginalName: { type: String, default: "" },
   notes: { type: String, default: "" },
   notesBn: { type: String, default: "" },
   freePreview: { type: Boolean, default: false },
@@ -67,6 +69,27 @@ const courseSchema = new Schema(
       type: String,
       default: "/sample-course-video.mp4",
     },
+    pdfUrl: {
+      type: String,
+      default: "",
+    },
+    pdfOriginalName: {
+      type: String,
+      default: "",
+    },
+    pdfSize: {
+      type: String,
+      default: "",
+    },
+    resources: [
+      {
+        title: { type: String, default: "" },
+        titleBn: { type: String, default: "" },
+        fileUrl: { type: String, default: "" },
+        fileName: { type: String, default: "" },
+        fileSize: { type: String, default: "" },
+      },
+    ],
     instructor: {
       name: { type: String, default: "Engr. Mahmudul Hasan" },
       nameBn: { type: String, default: "প্রকৌশলী মাহমুদুল হাসান" },

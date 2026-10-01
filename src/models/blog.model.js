@@ -78,6 +78,12 @@ const blogSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    accessType: {
+      type: String,
+      enum: ["free", "paid"],
+      default: "free",
+      index: true,
+    },
     views: {
       type: Number,
       default: 0,

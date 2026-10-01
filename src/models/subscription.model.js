@@ -12,17 +12,27 @@ const subscriptionSchema = new Schema(
     plan: {
       type: String,
       required: true,
-      enum: ["consumer", "dealer", "enterprise", "course_single"],
-      default: "dealer",
+      enum: [
+        "free",
+        "monthly",
+        "half_yearly",
+        "yearly",
+        "professional",
+        "course_single",
+        "consumer",
+        "dealer",
+        "enterprise",
+      ],
+      default: "monthly",
     },
     planName: {
       type: String,
-      default: "Licensed Dealer",
+      default: "Monthly Premium",
     },
     billingCycle: {
       type: String,
-      enum: ["monthly", "half_yearly", "yearly", "one_time"],
-      default: "yearly",
+      enum: ["monthly", "half_yearly", "yearly", "one_time", "lifetime"],
+      default: "monthly",
     },
     amount: {
       type: Number,
@@ -57,7 +67,7 @@ const subscriptionSchema = new Schema(
     },
     expiryDate: {
       type: Date,
-      required: true,
+      default: null,
       index: true,
     },
     customerDetails: {
@@ -77,6 +87,17 @@ const subscriptionSchema = new Schema(
     userId: {
       type: Schema.Types.ObjectId,
       ref: "User",
+    },
+    courseId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    instructorId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
     },
   },
   {
