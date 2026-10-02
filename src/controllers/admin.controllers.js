@@ -174,7 +174,54 @@ export const getDashboardOverviewStats = asyncHandler(async (req, res) => {
 });
 
 /**
- * Admin: Get system settings
+ * Public: Get public website settings
+ */
+export const getPublicSettings = asyncHandler(async (req, res) => {
+  let settings = await Setting.findOne({ key: "general_settings" });
+  if (!settings) {
+    settings = await Setting.create({ key: "general_settings" });
+  }
+
+  // Strip sensitive credentials for public view
+  const publicData = {
+    siteName: settings.siteName,
+    tagline: settings.tagline,
+    siteLogo: settings.siteLogo,
+    footerLogo: settings.footerLogo,
+    favicon: settings.favicon,
+    copyrightText: settings.copyrightText,
+    footerAbout: settings.footerAbout,
+    siteEmail: settings.siteEmail,
+    sitePhone: settings.sitePhone,
+    hotlineLabel: settings.hotlineLabel,
+    emergencyPhone: settings.emergencyPhone,
+    whatsappNumber: settings.whatsappNumber,
+    address: settings.address,
+    workingHours: settings.workingHours,
+    mapEmbedUrl: settings.mapEmbedUrl,
+    facebookUrl: settings.facebookUrl,
+    twitterUrl: settings.twitterUrl,
+    linkedinUrl: settings.linkedinUrl,
+    youtubeUrl: settings.youtubeUrl,
+    instagramUrl: settings.instagramUrl,
+    topbarEnabled: settings.topbarEnabled,
+    topbarAnnouncement: settings.topbarAnnouncement,
+    topbarAnnouncementUrl: settings.topbarAnnouncementUrl,
+    seoTitle: settings.seoTitle,
+    seoDescription: settings.seoDescription,
+    seoKeywords: settings.seoKeywords,
+    metaAuthor: settings.metaAuthor,
+    maintenanceMode: settings.maintenanceMode,
+    maintenanceNotice: settings.maintenanceNotice,
+  };
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, publicData, "Public settings retrieved successfully"));
+});
+
+/**
+ * Admin: Get system settings (All configuration fields)
  */
 export const getSystemSettings = asyncHandler(async (req, res) => {
   let settings = await Setting.findOne({ key: "general_settings" });
@@ -188,7 +235,7 @@ export const getSystemSettings = asyncHandler(async (req, res) => {
 });
 
 /**
- * Admin: Update system settings
+ * Admin: Update system settings (Supports JSON or multipart/form-data with logo uploads)
  */
 export const updateSystemSettings = asyncHandler(async (req, res) => {
   let settings = await Setting.findOne({ key: "general_settings" });
@@ -196,22 +243,67 @@ export const updateSystemSettings = asyncHandler(async (req, res) => {
     settings = await Setting.create({ key: "general_settings" });
   }
 
-  const allowedFields = [
+  // Handle uploaded images if any
+  if (req.files) {
+    if (req.files.siteLogo && req.files.siteLogo[0]) {
+      settings.siteLogo = `/public/upload/${req.files.siteLogo[0].filename}`;
+    }
+    if (req.files.footerLogo && req.files.footerLogo[0]) {
+      settings.footerLogo = `/public/upload/${req.files.footerLogo[0].filename}`;
+    }
+    if (req.files.favicon && req.files.favicon[0]) {
+      settings.favicon = `/public/upload/${req.files.favicon[0].filename}`;
+    }
+  }
+
+  const stringFields = [
     "siteName",
+    "tagline",
+    "siteLogo",
+    "footerLogo",
+    "favicon",
+    "copyrightText",
+    "footerAbout",
     "siteEmail",
     "sitePhone",
-    "maintenanceMode",
+    "hotlineLabel",
+    "emergencyPhone",
+    "whatsappNumber",
+    "address",
+    "workingHours",
+    "mapEmbedUrl",
+    "facebookUrl",
+    "twitterUrl",
+    "linkedinUrl",
+    "youtubeUrl",
+    "instagramUrl",
+    "topbarAnnouncement",
+    "topbarAnnouncementUrl",
     "seoTitle",
     "seoDescription",
+    "seoKeywords",
+    "metaAuthor",
+    "maintenanceNotice",
     "smsSenderId",
     "smsProvider",
+    "smsApiKey",
     "smtpFromName",
     "smtpFromEmail",
+    "smtpHost",
+    "smtpPort",
   ];
 
-  for (const field of allowedFields) {
+  for (const field of stringFields) {
     if (req.body[field] !== undefined) {
       settings[field] = req.body[field];
+    }
+  }
+
+  const booleanFields = ["topbarEnabled", "maintenanceMode"];
+  for (const field of booleanFields) {
+    if (req.body[field] !== undefined) {
+      settings[field] =
+        req.body[field] === true || req.body[field] === "true" || req.body[field] === 1;
     }
   }
 

@@ -6,6 +6,8 @@ import {
   registerUser,
   sendRegistrationOtp,
   verifyRegistrationOtp,
+  sendForgotPasswordOtp,
+  resetPasswordWithOtp,
   login,
   logout,
   refreshAccessToken,
@@ -32,6 +34,8 @@ router.route("/send-registration-otp").post(sendRegistrationOtp);
 router.route("/new-otp").post(sendRegistrationOtp);
 router.route("/verify-registration-otp").post(verifyRegistrationOtp);
 router.route("/otp-verify").post(verifyRegistrationOtp);
+router.route("/forgot-password").post(sendForgotPasswordOtp);
+router.route("/reset-password").post(resetPasswordWithOtp);
 router.route("/login").post(login);
 router.route("/refresh-token").post(refreshAccessToken);
 router.route("/by-username/:userName").get(getUserByUsername);

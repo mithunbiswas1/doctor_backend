@@ -867,10 +867,117 @@ const verifyRegistrationOtp = asyncHandler(async (req, res) => {
   );
 });
 
+// Send OTP to email for password reset
+const sendForgotPasswordOtp = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  if (!email || !email.includes("@")) {
+    throw new ApiError(400, "Valid email address is required");
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  const existingUser = await User.findOne({ email: normalizedEmail });
+  if (!existingUser) {
+    throw new ApiError(404, "No account found with this email address");
+  }
+
+  // Generate 6 digit OTP
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // Save to Otp collection (TTL handles 10-minute expiry)
+  await Otp.deleteMany({ email: normalizedEmail, type: "password_reset" });
+  await Otp.create({
+    email: normalizedEmail,
+    otp: code,
+    type: "password_reset",
+  });
+
+  // Send HTML Email
+  const { sendMail } = await import("../utils/email.service.js");
+  const html = `
+  <!DOCTYPE html>
+  <html>
+  <body style="font-family: Arial, sans-serif; background: #f8fafc; padding: 20px; color: #1e293b;">
+    <div style="max-width: 500px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+      <h2 style="color: #22081f; margin: 0 0 8px 0; font-size: 20px; font-weight: 800;">AEL SafeLPG Bangladesh</h2>
+      <p style="color: #64748b; font-size: 13px; margin: 0 0 24px 0;">Password Reset Security Code</p>
+      
+      <p style="font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">Hello <strong>${existingUser.fullName || "User"}</strong>,</p>
+      <p style="font-size: 13px; line-height: 1.6; color: #475569; margin: 0 0 20px 0;">
+        We received a request to reset your password. Use the following 6-digit verification code to reset your password:
+      </p>
+
+      <div style="background: #faf8f5; border: 1px dashed #d4a373; padding: 18px; border-radius: 12px; text-align: center; margin: 24px 0;">
+        <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #d4a373; font-family: monospace;">${code}</span>
+      </div>
+
+      <p style="color: #94a3b8; font-size: 11px; margin: 0; line-height: 1.5;">
+        This code is valid for 10 minutes. If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.
+      </p>
+    </div>
+  </body>
+  </html>
+  `;
+
+  await sendMail({
+    to: normalizedEmail,
+    subject: `[SafeLPG] Password Reset Code: ${code}`,
+    html,
+    text: `Your SafeLPG password reset code is: ${code}. Valid for 10 minutes.`,
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, { email: normalizedEmail }, "Password reset code sent to your email")
+  );
+});
+
+// Reset Password with OTP
+const resetPasswordWithOtp = asyncHandler(async (req, res) => {
+  const { email, otp, newPassword, confirmPassword } = req.body;
+  if (!email || !otp || !newPassword) {
+    throw new ApiError(400, "Email, OTP code, and new password are required");
+  }
+
+  if (confirmPassword && newPassword !== confirmPassword) {
+    throw new ApiError(400, "New password and confirm password do not match");
+  }
+
+  if (newPassword.length < 6) {
+    throw new ApiError(400, "Password must be at least 6 characters long");
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  const otpRecord = await Otp.findOne({
+    email: normalizedEmail,
+    otp: otp.trim(),
+    type: "password_reset",
+  });
+
+  if (!otpRecord) {
+    throw new ApiError(400, "Invalid or expired verification code");
+  }
+
+  const user = await User.findOne({ email: normalizedEmail });
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  user.password = newPassword;
+  await user.save();
+
+  // Delete the OTP record so it cannot be used again
+  await Otp.deleteMany({ email: normalizedEmail, type: "password_reset" });
+
+  return res.status(200).json(
+    new ApiResponse(200, {}, "Password has been successfully reset. Please log in with your new password.")
+  );
+});
+
 export {
   registerUser,
   sendRegistrationOtp,
   verifyRegistrationOtp,
+  sendForgotPasswordOtp,
+  resetPasswordWithOtp,
   login,
   logout,
   refreshAccessToken,
