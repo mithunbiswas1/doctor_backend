@@ -65,8 +65,38 @@ const userSchema = new Schema(
     ],
     bio: {
       type: String,
+      default: "",
+    },
+    designation: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    website: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    linkedin: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    twitter: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    facebook: {
+      type: String,
+      default: "",
+      trim: true,
     },
     is_active: {
+      type: Boolean,
+      default: true,
+    },
+    is_newsletter_subscribed: {
       type: Boolean,
       default: true,
     },

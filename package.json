@@ -23,6 +23,7 @@
     "mongoose": "^8.15.1",
     "mongoose-aggregate-paginate-v2": "^1.1.4",
     "multer": "^2.0.1",
+    "nodemailer": "^10.0.13",
     "uuid": "^11.1.0"
   }
 }

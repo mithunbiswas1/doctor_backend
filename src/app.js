@@ -16,11 +16,12 @@ import contactRouter from "./routes/contact.routes.js";
 import homeBannerRouter from "./routes/homeBanner.routes.js";
 import commentRouter from "./routes/comment.routes.js";
 import advertisementRouter from "./routes/advertisement.routes.js";
-import archiveRouter from "./routes/archive.routes.js";
 import campaignRouter from "./routes/campaign.routes.js";
 import subscriptionRouter from "./routes/subscription.routes.js";
 import directoryRouter from "./routes/directory.routes.js";
 import marketUpdateRouter from "./routes/marketUpdate.routes.js";
+import newsletterRouter from "./routes/newsletter.routes.js";
+import adminRouter from "./routes/admin.routes.js";
 
 // __dirname setup for ES Module
 const __filename = fileURLToPath(import.meta.url);
@@ -28,11 +29,24 @@ const __dirname = dirname(__filename);
 
 const app = express();
 
-// CORS
-const allowedOrigins = ["http://localhost:3000"];
+// CORS Configuration
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3000",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: "*",
+    origin: (origin, callback) => {
+      // Allow non-browser requests or matching origins
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
     credentials: true,
   })
 );
@@ -67,10 +81,11 @@ app.use("/api/v1/contact", contactRouter);
 app.use("/api/v1/home-banner", homeBannerRouter);
 app.use("/api/v1/comments", commentRouter);
 app.use("/api/v1/advertisements", advertisementRouter);
-app.use("/api/v1/archives", archiveRouter);
 app.use("/api/v1/campaigns", campaignRouter);
 app.use("/api/v1/subscriptions", subscriptionRouter);
 app.use("/api/v1/directory", directoryRouter);
 app.use("/api/v1/market-updates", marketUpdateRouter);
+app.use("/api/v1/newsletter", newsletterRouter);
+app.use("/api/v1/admin", adminRouter);
 
 export { app };

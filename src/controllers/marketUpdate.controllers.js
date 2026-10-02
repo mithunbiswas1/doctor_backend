@@ -4,6 +4,7 @@ import { MarketUpdate } from "../models/marketUpdate.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { dispatchNewsletterForNewContent } from "../utils/newsletterDispatcher.js";
 
 const CATEGORY_NAMES_BN = {
   incidents: "দুর্ঘটনা ও তদন্ত প্রতিবেদন",
@@ -58,7 +59,8 @@ export const getPublicMarketUpdates = asyncHandler(async (req, res) => {
       .sort(sortOptions)
       .skip(skip)
       .limit(validLimit)
-      .select("-contentEn -contentBn"), // Exclude full rich-text for list payload optimization
+      .select("-contentEn -contentBn") // Exclude full rich-text for list payload optimization
+      .populate("createdBy", "fullName userName image bio designation"),
     MarketUpdate.countDocuments(filter),
   ]);
 
@@ -93,7 +95,7 @@ export const getPublicMarketUpdateBySlug = asyncHandler(async (req, res) => {
     { slug: slug.toLowerCase(), isPublished: true },
     { $inc: { views: 1 } },
     { new: true }
-  ).populate("createdBy", "fullName email role");
+  ).populate("createdBy", "fullName userName image bio designation");
 
   if (!update) {
     throw new ApiError(404, "Market update article not found");
@@ -234,15 +236,13 @@ export const createMarketUpdate = asyncHandler(async (req, res) => {
     metaKeywords,
   } = req.body;
 
-  if (!titleEn || !titleBn || !summaryEn || !summaryBn) {
-    throw new ApiError(
-      400,
-      "Both English and Bengali titles and summaries are mandatory"
-    );
-  }
+  const finalTitleEn = (titleEn || req.body.title || "Untitled Market Update").trim();
+  const finalTitleBn = (titleBn || req.body.titleBn || finalTitleEn).trim();
+  const finalSummaryEn = (summaryEn || req.body.summary || req.body.description || req.body.content || "Market update summary").trim();
+  const finalSummaryBn = (summaryBn || req.body.summaryBn || req.body.descriptionBn || finalSummaryEn).trim();
 
   // Derive unique slug
-  let generatedSlug = (slug || titleEn)
+  let generatedSlug = (slug || finalTitleEn)
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, "")
@@ -287,13 +287,13 @@ export const createMarketUpdate = asyncHandler(async (req, res) => {
     categoryBn || CATEGORY_NAMES_BN[category] || "মার্কেট আপডেট";
 
   const marketUpdate = await MarketUpdate.create({
-    titleEn: titleEn.trim(),
-    titleBn: titleBn.trim(),
+    titleEn: finalTitleEn,
+    titleBn: finalTitleBn,
     slug: generatedSlug,
     category,
     categoryBn: finalCategoryBn,
-    summaryEn: summaryEn.trim(),
-    summaryBn: summaryBn.trim(),
+    summaryEn: finalSummaryEn,
+    summaryBn: finalSummaryBn,
     contentEn,
     contentBn,
     image: imageUrl,
@@ -313,6 +313,14 @@ export const createMarketUpdate = asyncHandler(async (req, res) => {
     metaKeywords,
     createdBy: req.user?._id,
   });
+
+  if (marketUpdate.isPublished) {
+    dispatchNewsletterForNewContent({
+      type: "market_update",
+      item: marketUpdate,
+      createdBy: req.user?._id,
+    });
+  }
 
   return res
     .status(201)

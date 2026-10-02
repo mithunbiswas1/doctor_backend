@@ -46,6 +46,11 @@ router
   .route("/admin/revoke/:userId")
   .post(verifyJWT, checkPermission("roles", "edit"), revokeUserSubscription);
 
+// Root admin alias
+router
+  .route("/")
+  .get(verifyJWT, checkPermission("roles", "view"), getAdminSubscriptions);
+
 // Admin Transactions & Audit
 router
   .route("/admin/all")

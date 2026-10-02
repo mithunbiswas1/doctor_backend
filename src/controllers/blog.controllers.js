@@ -5,6 +5,7 @@ import { BlogCategory } from "../models/blogCategory.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { dispatchNewsletterForNewContent } from "../utils/newsletterDispatcher.js";
 
 /**
  * Public: Get paginated list of published blogs with search & filter
@@ -44,7 +45,11 @@ export const getPublicBlogs = asyncHandler(async (req, res) => {
   sortOptions[sortBy] = order === "asc" ? 1 : -1;
 
   const [blogs, total] = await Promise.all([
-    Blog.find(filter).sort(sortOptions).skip(skip).limit(validLimit),
+    Blog.find(filter)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(validLimit)
+      .populate("createdBy", "fullName userName image bio designation"),
     Blog.countDocuments(filter),
   ]);
 
@@ -78,7 +83,7 @@ export const getPublicBlogBySlug = asyncHandler(async (req, res) => {
     },
     { $inc: { views: 1 } },
     { new: true }
-  );
+  ).populate("createdBy", "fullName userName image bio designation");
 
   if (!blog) {
     throw new ApiError(404, "Blog post not found");
@@ -171,6 +176,8 @@ export const createBlog = asyncHandler(async (req, res) => {
     slug,
     descriptionEn,
     descriptionBn,
+    shortDescriptionEn,
+    shortDescriptionBn,
     contentEn,
     contentBn,
     category,
@@ -183,15 +190,15 @@ export const createBlog = asyncHandler(async (req, res) => {
     isPublished = true,
   } = req.body;
 
-  if (!titleEn || !titleBn || !descriptionEn || !descriptionBn) {
-    throw new ApiError(
-      400,
-      "Both English and Bengali titles and summaries are mandatory"
-    );
-  }
+  const finalTitleEn = titleEn || req.body.title || "Untitled Blog Post";
+  const finalTitleBn = titleBn || req.body.titleBn || finalTitleEn;
+  const finalDescEn = descriptionEn || req.body.description || req.body.summary || req.body.content || "Blog summary description";
+  const finalDescBn = descriptionBn || req.body.descriptionBn || req.body.summaryBn || finalDescEn;
+  const finalShortDescEn = shortDescriptionEn || req.body.shortDescription || finalDescEn.slice(0, 160);
+  const finalShortDescBn = shortDescriptionBn || req.body.shortDescriptionBn || finalDescBn.slice(0, 160);
 
   // Derive slug
-  let generatedSlug = (slug || titleEn)
+  let generatedSlug = (slug || finalTitleEn)
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, "")
@@ -222,13 +229,15 @@ export const createBlog = asyncHandler(async (req, res) => {
   }
 
   const blog = await Blog.create({
-    titleEn,
-    titleBn,
+    titleEn: finalTitleEn,
+    titleBn: finalTitleBn,
     slug: generatedSlug,
-    descriptionEn,
-    descriptionBn,
-    contentEn: contentEn || "",
-    contentBn: contentBn || "",
+    descriptionEn: finalDescEn,
+    descriptionBn: finalDescBn,
+    shortDescriptionEn: finalShortDescEn,
+    shortDescriptionBn: finalShortDescBn,
+    contentEn: contentEn || req.body.content || "",
+    contentBn: contentBn || req.body.content || "",
     category: category || "seminar",
     categoryBn: categoryBn || "সেমিনার",
     authorEn: authorEn || "Safe LPG Technical Committee",
@@ -247,6 +256,14 @@ export const createBlog = asyncHandler(async (req, res) => {
     canonicalUrl: req.body.canonicalUrl || "",
     ogImage: req.body.ogImage || imageUrl || "",
   });
+
+  if (blog.isPublished) {
+    dispatchNewsletterForNewContent({
+      type: "blog",
+      item: blog,
+      createdBy: req.user?._id,
+    });
+  }
 
   return res
     .status(201)

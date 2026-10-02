@@ -10,8 +10,6 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
     req.cookies?.accessToken ||
     req.header("Authorization")?.replace("Bearer ", ""); // Fixed: removed extra space
 
-  console.log("Token:", token); // Better logging
-
   if (!token) {
     throw new ApiError(401, "Unauthorized request");
   }
@@ -19,9 +17,7 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
   let decodedToken;
   try {
     decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-    console.log("Decoded Token:", decodedToken); // For debugging
   } catch (error) {
-    console.error("JWT Verification Error:", error.message); // Better error logging
     throw new ApiError(401, "Invalid Access Token");
   }
 

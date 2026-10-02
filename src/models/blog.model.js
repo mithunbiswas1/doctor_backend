@@ -30,6 +30,16 @@ const blogSchema = new Schema(
       type: String,
       required: [true, "Bengali summary is required"],
     },
+    shortDescriptionEn: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    shortDescriptionBn: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     contentEn: {
       type: String,
       default: "",

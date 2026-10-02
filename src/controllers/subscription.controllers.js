@@ -7,6 +7,7 @@ import { Course } from "../models/course.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { sendPurchaseInvoiceEmail } from "../utils/email.service.js";
 
 /**
  * Public: Available Subscription Plans from Database
@@ -310,6 +311,33 @@ export const initiateCheckout = asyncHandler(async (req, res) => {
     await userToUpdate.save();
   }
 
+  // Dispatch automated invoice email asynchronously to customer
+  setImmediate(async () => {
+    try {
+      await sendPurchaseInvoiceEmail({
+        transactionId: subscription.transactionId,
+        customerDetails: subscription.customerDetails,
+        customerEmail: email || req.user?.email || userToUpdate?.email,
+        customerName: customerFullName,
+        customerPhone: customerPhone,
+        companyName: companyName || req.user?.companyName,
+        planOrCourseTitle: subscription.planName,
+        type: courseId ? "course" : "subscription",
+        billingCycle: subscription.billingCycle,
+        amount: subscription.amount,
+        vat: subscription.vat,
+        grandTotal: subscription.grandTotal,
+        paymentMethod: subscription.paymentMethod,
+        paymentGateway: subscription.paymentGateway,
+        bankTranId: subscription.bankTranId,
+        startDate: subscription.startDate,
+        expiryDate: subscription.expiryDate,
+      });
+    } catch (e) {
+      // Silently handle error
+    }
+  });
+
   return res.status(201).json(
     new ApiResponse(
       201,
@@ -397,6 +425,37 @@ export const assignUserSubscription = asyncHandler(async (req, res) => {
     userId: user._id,
   });
 
+  // Dispatch invoice email asynchronously
+  setImmediate(async () => {
+    try {
+      await sendPurchaseInvoiceEmail({
+        transactionId,
+        customerDetails: {
+          fullName: user.fullName || user.userName,
+          phone: user.phone || "",
+          email: user.email || "",
+          companyName: notes || "Admin Assigned",
+        },
+        customerEmail: user.email,
+        customerName: user.fullName || user.userName,
+        customerPhone: user.phone,
+        companyName: notes || "Admin Assigned",
+        planOrCourseTitle: planName,
+        type: "subscription",
+        billingCycle: finalDays === 30 ? "monthly" : finalDays === 180 ? "half_yearly" : "yearly",
+        amount: planRecord?.price || 0,
+        vat: 0,
+        grandTotal: planRecord?.price || 0,
+        paymentMethod: "bank_transfer",
+        paymentGateway: "Admin Manual Assignment",
+        startDate,
+        expiryDate: expiresAt,
+      });
+    } catch (e) {
+      // Silently handle error
+    }
+  });
+
   return res
     .status(200)
     .json(new ApiResponse(200, user.subscription, "Subscription assigned successfully to user"));
@@ -437,17 +496,53 @@ export const revokeUserSubscription = asyncHandler(async (req, res) => {
  * Admin: Get all transactions & subscriptions with revenue stats
  */
 export const getAdminSubscriptions = asyncHandler(async (req, res) => {
-  const { status, plan, search, page = 1, limit = 20 } = req.query;
+  const { status, plan, search, timeRange, startDate, endDate, page = 1, limit = 20 } = req.query;
 
   const validPage = Math.max(1, parseInt(page, 10) || 1);
   const validLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
   const skip = (validPage - 1) * validLimit;
 
+  const cleanStr = (val) =>
+    val && val !== "undefined" && val !== "null" && val !== "all" ? val.trim() : null;
+
+  const cleanStatus = cleanStr(status);
+  const cleanPlan = cleanStr(plan);
+  const cleanSearch = cleanStr(search);
+  const cleanTimeRange = cleanStr(timeRange);
+  const cleanStartDate = cleanStr(startDate);
+  const cleanEndDate = cleanStr(endDate);
+
   const filter = {};
-  if (status && status !== "all") filter.status = status;
-  if (plan && plan !== "all") filter.plan = plan;
-  if (search && search.trim()) {
-    const regex = new RegExp(search.trim(), "i");
+  if (cleanStatus) filter.status = cleanStatus;
+  if (cleanPlan) filter.plan = cleanPlan;
+
+  // Custom Date-to-Date or Quick Time Range Filter
+  const now = new Date();
+  if (cleanStartDate || cleanEndDate) {
+    filter.createdAt = {};
+    if (cleanStartDate) {
+      const s = new Date(cleanStartDate);
+      s.setHours(0, 0, 0, 0);
+      filter.createdAt.$gte = s;
+    }
+    if (cleanEndDate) {
+      const e = new Date(cleanEndDate);
+      e.setHours(23, 59, 59, 999);
+      filter.createdAt.$lte = e;
+    }
+  } else if (cleanTimeRange === "today") {
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    filter.createdAt = { $gte: startOfToday };
+  } else if (cleanTimeRange === "week") {
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    filter.createdAt = { $gte: sevenDaysAgo };
+  } else if (cleanTimeRange === "month") {
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    filter.createdAt = { $gte: startOfMonth };
+  }
+
+  if (cleanSearch) {
+    const regex = new RegExp(cleanSearch, "i");
     filter.$or = [
       { transactionId: regex },
       { "customerDetails.fullName": regex },
@@ -457,7 +552,11 @@ export const getAdminSubscriptions = asyncHandler(async (req, res) => {
     ];
   }
 
-  const [subscriptions, total, revenueAgg] = await Promise.all([
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const [subscriptions, total, revenueAgg, monthAgg, weekAgg, todayAgg] = await Promise.all([
     Subscription.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -466,6 +565,18 @@ export const getAdminSubscriptions = asyncHandler(async (req, res) => {
     Subscription.countDocuments(filter),
     Subscription.aggregate([
       { $match: { status: "paid" } },
+      { $group: { _id: null, total: { $sum: "$grandTotal" } } },
+    ]),
+    Subscription.aggregate([
+      { $match: { status: "paid", createdAt: { $gte: startOfMonth } } },
+      { $group: { _id: null, total: { $sum: "$grandTotal" } } },
+    ]),
+    Subscription.aggregate([
+      { $match: { status: "paid", createdAt: { $gte: sevenDaysAgo } } },
+      { $group: { _id: null, total: { $sum: "$grandTotal" } } },
+    ]),
+    Subscription.aggregate([
+      { $match: { status: "paid", createdAt: { $gte: startOfToday } } },
       { $group: { _id: null, total: { $sum: "$grandTotal" } } },
     ]),
   ]);
@@ -487,6 +598,9 @@ export const getAdminSubscriptions = asyncHandler(async (req, res) => {
           totalPages: Math.ceil(total / validLimit) || 1,
         },
         totalRevenue: revenueAgg[0]?.total || 0,
+        monthlyRevenue: monthAgg[0]?.total || 0,
+        weeklyRevenue: weekAgg[0]?.total || 0,
+        todayRevenue: todayAgg[0]?.total || 0,
         activeSubscribers: activeCount,
       },
       "Subscriptions and transactions retrieved successfully"

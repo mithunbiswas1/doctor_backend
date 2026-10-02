@@ -17,25 +17,25 @@ export const getCommentsByTarget = asyncHandler(async (req, res) => {
     throw new ApiError(400, "targetId query parameter is required");
   }
 
-  let currentUserId = req.user?._id || null;
-  if (!currentUserId && req.query.userId) {
-    if (mongoose.Types.ObjectId.isValid(req.query.userId)) {
-      currentUserId = new mongoose.Types.ObjectId(req.query.userId);
-    } else {
-      currentUserId = req.query.userId;
-    }
-  }
+  // Secure User Identity: Strictly trust authenticated JWT, never accept arbitrary query spoofing
+  const currentUserId = req.user?._id || null;
 
-  // Status condition:
-  // Approved comments visible to everyone, OR pending comments visible only to their author
-  const statusFilter = currentUserId
-    ? {
+  // Admin sees all, author sees own pending + approved, public sees approved
+  const isAdmin =
+    req.user &&
+    (req.user.role === "admin" ||
+      req.user.role === "super_admin" ||
+      req.user.role === "superadmin");
+  const statusFilter = isAdmin
+    ? {}
+    : currentUserId
+      ? {
         $or: [
           { status: "approved" },
           { status: "pending", userId: currentUserId },
         ],
       }
-    : { status: "approved" };
+      : { status: "approved" };
 
   // 1. Fetch top-level comments
   const topComments = await Comment.find({

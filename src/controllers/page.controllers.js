@@ -1,8 +1,8 @@
-// src/controllers/page.controllers.js
 import { Page } from "../models/page.model.js";
-import { ApiError } from "../utils/ApiError.js";
-import { ApiResponse } from "../utils/ApiResponse.js";
+import { ApiError } from "../utils/apiError.js";
+import { ApiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { dispatchNewsletterForNewContent } from "../utils/newsletterDispatcher.js";
 
 /**
  * Public: Get single page content and banner by key
@@ -65,11 +65,33 @@ export const updatePageByKey = asyncHandler(async (req, res) => {
     updatedBy: req.user?._id,
   };
 
+  const existingPage = await Page.findOne({ pageKey: pageKey.toLowerCase() });
+
   const page = await Page.findOneAndUpdate(
     { pageKey: pageKey.toLowerCase() },
     { $set: updateData },
     { new: true, upsert: true, runValidators: true }
   );
+
+  // If safety guidelines page, check if new guideline document was added
+  if (pageKey.toLowerCase() === "safety-guidelines" && sections) {
+    const prevDocs = existingPage?.sections?.documentDownloads || [];
+    const newDocs = sections?.documentDownloads || [];
+    if (newDocs.length > prevDocs.length) {
+      const latestDoc = newDocs[newDocs.length - 1];
+      dispatchNewsletterForNewContent({
+        type: "safety_guideline",
+        item: {
+          title: latestDoc.title || latestDoc.titleEn,
+          titleBn: latestDoc.titleBn,
+          description: latestDoc.description || latestDoc.descriptionEn,
+          descriptionBn: latestDoc.descriptionBn,
+          itemType: "guideline",
+        },
+        createdBy: req.user?._id,
+      });
+    }
+  }
 
   return res.status(200).json(
     new ApiResponse(200, page, "Page updated successfully")

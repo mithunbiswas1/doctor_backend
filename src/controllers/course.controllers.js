@@ -6,6 +6,8 @@ import { Subscription } from "../models/subscription.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { dispatchNewsletterForNewContent } from "../utils/newsletterDispatcher.js";
+import { sendPurchaseInvoiceEmail } from "../utils/email.service.js";
 
 /**
  * Public: Get list of courses with filtering & pagination
@@ -192,6 +194,14 @@ export const createCourse = asyncHandler(async (req, res) => {
     slug: req.body.slug || generatedSlug,
     createdBy: req.user?._id,
   });
+
+  if (course.isPublished !== false) {
+    dispatchNewsletterForNewContent({
+      type: "course",
+      item: course,
+      createdBy: req.user?._id,
+    });
+  }
 
   return res
     .status(201)
@@ -591,6 +601,35 @@ export const enrollInCourse = asyncHandler(async (req, res) => {
       userId: user._id,
       courseId: course.courseId,
       instructorId: course.createdBy || null,
+    });
+
+    // Dispatch invoice email asynchronously
+    setImmediate(async () => {
+      try {
+        await sendPurchaseInvoiceEmail({
+          transactionId: txnId,
+          customerDetails: {
+            fullName: user.fullName || user.userName || "Student",
+            phone: user.phone || "01700000000",
+            email: user.email || "",
+          },
+          customerEmail: user.email,
+          customerName: user.fullName || user.userName,
+          customerPhone: user.phone,
+          planOrCourseTitle: `Course: ${course.title}`,
+          type: "course",
+          billingCycle: "lifetime",
+          amount: course.price || 0,
+          vat: 0,
+          grandTotal: course.price || 0,
+          paymentMethod: course.price > 0 ? "sslcommerz" : "card",
+          paymentGateway: course.price > 0 ? "SSLCommerz" : "Free Direct Enrollment",
+          startDate: new Date(),
+          expiryDate: lifetimeExpiry,
+        });
+      } catch (e) {
+        // Silently handle error
+      }
     });
   }
 

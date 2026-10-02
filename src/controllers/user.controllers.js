@@ -1,9 +1,12 @@
-// src/controllers/user.controllers.js
-
+import mongoose from "mongoose";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { User } from "../models/user.model.js";
+import { Blog } from "../models/blog.model.js";
+import { MarketUpdate } from "../models/marketUpdate.model.js";
+import { NewsletterSubscriber } from "../models/newsletterSubscriber.model.js";
+import { Otp } from "../models/otp.model.js";
 import jwt from "jsonwebtoken";
 
 const generateAccessTokenAndRefreshToken = async (userId) => {
@@ -91,6 +94,7 @@ const registerUser = asyncHandler(async (req, res) => {
     phone,
     password,
     role: "user",
+    is_newsletter_subscribed: true,
     ...(cleanedEmail && { email }),
     ...(bio && { bio }),
     ...(profileImage && { image: profileImage }),
@@ -98,6 +102,31 @@ const registerUser = asyncHandler(async (req, res) => {
   };
 
   const user = await User.create(userData);
+
+  // Automatically subscribe registered user to newsletter if email exists
+  if (cleanedEmail) {
+    try {
+      await NewsletterSubscriber.findOneAndUpdate(
+        { email: cleanedEmail.toLowerCase() },
+        {
+          $set: {
+            email: cleanedEmail.toLowerCase(),
+            name: fullName,
+            phone,
+            userId: user._id,
+            source: "registration",
+            isActive: true,
+            subscribedAt: new Date(),
+            unsubscribedAt: null,
+          },
+        },
+        { upsert: true, new: true }
+      );
+    } catch (newsErr) {
+      // Auto-subscription failed silently
+    }
+  }
+
   const createdUser = await User.findById(user._id).select(
     "-password -refreshToken"
   );
@@ -265,6 +294,11 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     phone,
     email,
     bio,
+    designation,
+    website,
+    linkedin,
+    twitter,
+    facebook,
     address,
     city,
     district,
@@ -310,7 +344,12 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     ...(fullName && { fullName }),
     ...(phone && { phone }),
     ...(email && { email }),
-    ...(bio && { bio }),
+    ...(bio !== undefined && { bio }),
+    ...(designation !== undefined && { designation }),
+    ...(website !== undefined && { website }),
+    ...(linkedin !== undefined && { linkedin }),
+    ...(twitter !== undefined && { twitter }),
+    ...(facebook !== undefined && { facebook }),
     ...(address && { address }),
     ...(city && { city }),
     ...(district && { district }),
@@ -557,7 +596,12 @@ const updateUserByAdmin = asyncHandler(async (req, res) => {
     ...(role && { role }),
     ...(is_active !== undefined && { is_active }),
     ...(is_prescribed !== undefined && { is_prescribed }),
-    ...(bio && { bio }),
+    ...(bio !== undefined && { bio }),
+    ...(designation !== undefined && { designation }),
+    ...(website !== undefined && { website }),
+    ...(linkedin !== undefined && { linkedin }),
+    ...(twitter !== undefined && { twitter }),
+    ...(facebook !== undefined && { facebook }),
     ...(address && { address }),
     ...(city && { city }),
     ...(district && { district }),
@@ -619,8 +663,214 @@ const getUserByUsername = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "User fetched successfully"));
 });
 
+// Public: Get author public profile and their articles/blogs
+const getAuthorPublicProfile = asyncHandler(async (req, res) => {
+  const { identifier } = req.params;
+
+  if (!identifier) {
+    throw new ApiError(400, "Author identifier is required");
+  }
+
+  const raw = decodeURIComponent(identifier).trim();
+  const isObjectId = mongoose.Types.ObjectId.isValid(raw) && raw.length === 24;
+  const normalizedSlug = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const spaceSeparated = raw.replace(/[-_+]/g, " ").trim();
+
+  let author = null;
+
+  if (isObjectId) {
+    author = await User.findById(raw).select(
+      "fullName userName image bio designation website linkedin twitter facebook role createdAt"
+    );
+  }
+
+  if (!author) {
+    author = await User.findOne({
+      $or: [
+        { userName: raw.toLowerCase() },
+        { userName: normalizedSlug },
+        { fullName: new RegExp(`^${raw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+        { fullName: new RegExp(`^${spaceSeparated.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+      ],
+    }).select("fullName userName image bio designation website linkedin twitter facebook role createdAt");
+  }
+
+  // If author record not found in Users, check if there are blogs or marketUpdates published under this author name
+  if (!author) {
+    const authorRegex = new RegExp(
+      `^(${raw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}|${spaceSeparated.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})$`,
+      "i"
+    );
+
+    const [matchingBlog, matchingMarket] = await Promise.all([
+      Blog.findOne({ authorEn: authorRegex, isPublished: true }),
+      MarketUpdate.findOne({ authorEn: authorRegex, isPublished: true }),
+    ]);
+
+    const fallbackArticle = matchingBlog || matchingMarket;
+
+    if (fallbackArticle) {
+      author = {
+        fullName: fallbackArticle.authorEn,
+        userName: raw.toLowerCase().replace(/[^a-z0-9]/g, "-"),
+        image: null,
+        bio: "Safe LPG Official Author & Industry Contributor",
+        designation: "Author / LPG Specialist",
+        role: "author",
+        isGuestAuthor: true,
+      };
+    } else {
+      throw new ApiError(404, "Author not found");
+    }
+  }
+
+  const authorId = author._id;
+  const authorNameRegex = new RegExp(
+    `^${author.fullName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+    "i"
+  );
+
+  const blogQuery = {
+    isPublished: true,
+    ...(authorId
+      ? { $or: [{ createdBy: authorId }, { authorEn: authorNameRegex }] }
+      : { authorEn: authorNameRegex }),
+  };
+
+  const marketUpdateQuery = {
+    isPublished: true,
+    ...(authorId
+      ? { $or: [{ createdBy: authorId }, { authorEn: authorNameRegex }] }
+      : { authorEn: authorNameRegex }),
+  };
+
+  const [blogs, marketUpdates] = await Promise.all([
+    Blog.find(blogQuery)
+      .sort({ createdAt: -1 })
+      .select("titleEn titleBn slug category categoryBn image shortDescriptionEn shortDescriptionBn descriptionEn descriptionBn authorEn authorBn readTimeEn readTimeBn createdAt views")
+      .populate("createdBy", "fullName userName image designation"),
+    MarketUpdate.find(marketUpdateQuery)
+      .sort({ createdAt: -1 })
+      .select("titleEn titleBn slug category categoryBn image summaryEn summaryBn authorEn authorBn publishDate createdAt views")
+      .populate("createdBy", "fullName userName image designation"),
+  ]);
+
+  const totalViews =
+    blogs.reduce((acc, b) => acc + (b.views || 0), 0) +
+    marketUpdates.reduce((acc, m) => acc + (m.views || 0), 0);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        author,
+        blogs,
+        marketUpdates,
+        stats: {
+          totalBlogs: blogs.length,
+          totalMarketUpdates: marketUpdates.length,
+          totalArticles: blogs.length + marketUpdates.length,
+          totalViews,
+        },
+      },
+      "Author profile and content fetched successfully"
+    )
+  );
+});
+
+// Send OTP to email for registration verification
+const sendRegistrationOtp = asyncHandler(async (req, res) => {
+  const { email, fullName } = req.body;
+  if (!email || !email.includes("@")) {
+    throw new ApiError(400, "Valid email address is required");
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  const existingUser = await User.findOne({ email: normalizedEmail });
+  if (existingUser) {
+    throw new ApiError(409, "An account is already registered with this email address");
+  }
+
+  // Generate 6 digit OTP
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // Save to Otp collection (TTL handles 10-minute expiry)
+  await Otp.deleteMany({ email: normalizedEmail, type: "registration" });
+  await Otp.create({
+    email: normalizedEmail,
+    otp: code,
+    type: "registration",
+  });
+
+  // Send HTML Email
+  const { sendMail } = await import("../utils/email.service.js");
+  const html = `
+  <!DOCTYPE html>
+  <html>
+  <body style="font-family: Arial, sans-serif; background: #f8fafc; padding: 20px; color: #1e293b;">
+    <div style="max-width: 500px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+      <h2 style="color: #22081f; margin: 0 0 8px 0; font-size: 20px; font-weight: 800;">AEL SafeLPG Bangladesh</h2>
+      <p style="color: #64748b; font-size: 13px; margin: 0 0 24px 0;">Official Registration Security Verification</p>
+      
+      <p style="font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">Hello <strong>${fullName || "Valued User"}</strong>,</p>
+      <p style="font-size: 13px; line-height: 1.6; color: #475569; margin: 0 0 20px 0;">
+        Thank you for joining the SafeLPG Safety & Awareness Platform. Use the following 6-digit verification code to complete your registration:
+      </p>
+
+      <div style="background: #faf8f5; border: 1px dashed #d4a373; padding: 18px; border-radius: 12px; text-align: center; margin: 24px 0;">
+        <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #d4a373; font-family: monospace;">${code}</span>
+      </div>
+
+      <p style="color: #94a3b8; font-size: 11px; margin: 0; line-height: 1.5;">
+        This code is valid for 10 minutes. If you did not request this, please disregard this email.
+      </p>
+    </div>
+  </body>
+  </html>
+  `;
+
+  await sendMail({
+    to: normalizedEmail,
+    subject: `[SafeLPG] Your Registration Verification Code: ${code}`,
+    html,
+    text: `Your SafeLPG registration verification code is: ${code}. Valid for 10 minutes.`,
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, { email: normalizedEmail }, "Verification code sent to your email")
+  );
+});
+
+// Verify Registration OTP
+const verifyRegistrationOtp = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) {
+    throw new ApiError(400, "Email and OTP code are required");
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  const record = await Otp.findOne({
+    email: normalizedEmail,
+    otp: otp.trim(),
+    type: "registration",
+  });
+
+  if (!record) {
+    throw new ApiError(400, "Invalid or expired verification code");
+  }
+
+  record.isVerified = true;
+  await record.save();
+
+  return res.status(200).json(
+    new ApiResponse(200, { email: normalizedEmail, verified: true }, "Email verified successfully")
+  );
+});
+
 export {
   registerUser,
+  sendRegistrationOtp,
+  verifyRegistrationOtp,
   login,
   logout,
   refreshAccessToken,
@@ -633,4 +883,5 @@ export {
   updateUserByAdmin,
   deleteUserByAdmin,
   getUserByUsername,
+  getAuthorPublicProfile,
 };
